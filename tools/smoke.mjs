@@ -174,8 +174,9 @@ const createContext = (theme) => {
   }
 }
 
-const mount = ({ storage = {}, theme = createTheme() } = {}) => {
+const mount = ({ storage = {}, theme = createTheme(), viewTransition } = {}) => {
   const document = createDocument()
+  if (viewTransition) document.startViewTransition = viewTransition
   const setThemeBefore = Object.getOwnPropertyDescriptor(theme, 'setTheme')
   const map = new Map(Object.entries(storage))
   const localStorage = {
@@ -285,6 +286,16 @@ fresh.theme.adopt('light')
 press(fresh, (node) => node.type === 'button' && Array.isArray(node.props.children) && node.props.children.includes('朱砂 · 深色'))
 verify('choosing 深色 writes the built-in preference', fresh.theme.preference === 'dark', fresh.theme.preference)
 verify('theme switch arms the crossfade', fresh.document.body.attributes.has('data-dsh-theme-fade'), 'data-dsh-theme-fade')
+
+let transitions = 0
+const smooth = mount({ viewTransition: (callback) => { transitions += 1; callback() } })
+smooth.theme.adopt('light')
+press(smooth, (node) => node.type === 'button' && Array.isArray(node.props.children) && node.props.children.includes('朱砂 · 深色'))
+verify(
+  'view transitions replace the per-element fade',
+  transitions === 1 && smooth.document.body.attributes.has('data-dsh-theme-fade') === false,
+  `transitions=${transitions}`,
+)
 
 // --------------------------------------------------------------------------
 // 5. The old package's keys

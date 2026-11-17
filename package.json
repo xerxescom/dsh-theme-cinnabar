@@ -1,6 +1,6 @@
 {
   "name": "dsh-theme-cinnabar",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Cinnabar (朱砂) — a readability-first theme for the DeepSeek Harness web client: one --dsw-* token layer with a contrast gate, a two-scheme liquid-glass material, and an optional washed background image.",
   "type": "module",
   "license": "MIT",

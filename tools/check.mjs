@@ -392,7 +392,7 @@ const wiring = [
   ['style layer follows the switch', /style\.disabled = !readEnabled\(\)/.test(clientSource) && /function setStyleEnabled/.test(clientSource)],
   ['background layer is retractable', /style\.remove\(\)/.test(clientSource)],
   ['style layer is present', /MOTION_CSS/.test(clientSource)],
-  ['crossfades theme switches', /function withThemeFade/.test(clientSource) && /body\[data-dsh-theme-fade\][\s\S]{0,400}transition-property/.test(clientSource)],
+  ['crossfades theme switches', /function withThemeFade/.test(clientSource) && /startViewTransition/.test(clientSource) && /body\[data-dsh-theme-fade\]/.test(clientSource)],
 ]
 const wiringFailures = wiring.filter(([, ok]) => !ok).map(([name]) => name)
 check('client half wiring', wiringFailures.length === 0, wiringFailures.join('; ') || wiring.length + ' checks')

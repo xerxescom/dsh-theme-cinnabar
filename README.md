@@ -175,7 +175,7 @@ factory: () => { const React = require("react"); ... }
 | 效果 | 实现 | 退路 |
 |---|---|---|
 | 主题切换过渡 | `body` 与对话容器的 `background-color`/`color` 180ms 缓动 | 无（纯过渡） |
-| 切换交叉淡入 | 切换前挂 `data-dsh-theme-fade` 并对整棵树做 260ms 颜色/透明度过渡，写偏好后 320ms 撤掉 | `prefers-reduced-motion` 时直接切换 |
+| 切换交叉淡入 | 优先 View Transitions：整页快照交给合成器做 240ms 交叉；不支持时退回 220ms 颜色过渡 | `prefers-reduced-motion` 时直接切换 |
 | 选区色 | `::selection` 用朱砂暖调，替换浏览器默认蓝 | 无 |
 | 焦点环 | `:focus-visible` 朱砂描边 + 28% 透明度光晕 | 无 |
 | 消息上浮 | `[data-chat-turn]` 6px 上移淡入，220ms | 靠 DSH 属性，属性没了只是不播 |
@@ -189,10 +189,11 @@ factory: () => { const React = require("react"); ... }
    `deriveMotion()` 算出来并写进 `report.json`，不是手填的。
 2. **尊重 reduced-motion。** 所有动画都在 `@media (prefers-reduced-motion: no-preference)`
    里；系统设了减少动效时，一切瞬间完成、无位移。
-3. **只在切换那 320ms 内接管过渡。** 平时不写全局 `transition`，否则会覆盖宿主自己的
-   opacity/transform 动效。切换时必须**先挂属性并强制一次样式刷新**：宿主在 `setTheme`
-   里同步写 token，如果在 `theme/change` 里才加类，新 token 和过渡声明会落进同一次样式
-   计算，浏览器直接跳变——这就是"生硬"的根因。
+3. **不要逐元素过渡整棵树。** 第一版给所有元素挂 220ms 过渡，长会话里几百个元素同时
+   动 `box-shadow`/`transform`，掉帧明显。现在优先 View Transitions：整页快照在合成器
+   上交叉，主线程只做一次 token 写入。退回路径才用颜色过渡，并且必须**先挂属性、强制
+   一次样式刷新**——宿主在 `setTheme` 里同步写 token，事后加类会和新值落进同一次样式
+   计算，浏览器直接跳变，这就是"生硬"的根因。
 
 背景图也并进了同一个 `<style>`，卸载时整块回收。
 
@@ -288,7 +289,7 @@ getComputedStyle(document.querySelector('[data-composer-card]')).backdropFilter
 node tools/palette.mjs        # 读基线 → 求解配色 → 跑门禁 → 写 tokens.json / report.json
 node tools/build-client.mjs   # tokens.json → lib/client.js
 node tools/check.mjs          # 30 项产物检查
-node tools/smoke.mjs          # 28 项运行时冒烟（vm 里加载真实 bundle）
+node tools/smoke.mjs          # 29 项运行时冒烟（vm 里加载真实 bundle）
 node tools/preview.mjs        # → preview.html
 node tools/render-preview.mjs # → preview.png（Node 自绘 PNG，不经过浏览器）
 npm run verify                # 以上全部
@@ -363,7 +364,7 @@ npm run verify                # 以上全部
 12. 配色是 `overrideTokens` 的一层、不是第三方主题 id（第三方 id 是会话级的，重启会被 adopt 覆盖）；
 13. 客户端 inject 了 `theme` 与 `slots`，装 token 层 + 设置行，记开关，写内置深浅偏好，
     迁移旧包开关与 pre-0.4 的 `choice` 键，chip 跟随实时偏好，样式表跟随开关；
-14. 切换主题时先挂过渡并强制一次样式刷新；`setTheme` 的包装在卸载时还原；
+14. 切换主题时优先走 View Transition（不支持才挂过渡并强制刷新）；`setTheme` 的包装在卸载时还原；
 15. 宿主半侧仍是无副作用的空 `apply()`。
 
 **可读性与动效**
@@ -386,7 +387,7 @@ npm run verify                # 以上全部
 
 （其余为上面的产物/契约检查，合计 30 项。）
 
-`node tools/smoke.mjs` 另跑 28 项运行时断言，`check.mjs` 看不到的那类问题归它：它用 Node 的
+`node tools/smoke.mjs` 另跑 29 项运行时断言，`check.mjs` 看不到的那类问题归它：它用 Node 的
 `vm` 加载**真实的** `lib/client.js`，配一份会像 `ThemeRuntime` 一样 `adopt()` 持久化偏好的桩，
 验证 token 层装上、adopt 之后不被撤掉、开关真的能撤层和停样式表、点「深色」写的是内置偏好、
 旧 key 迁移一次，以及卸载后 `<style>` 和层都收回。
