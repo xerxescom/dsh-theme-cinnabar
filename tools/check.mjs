@@ -21,7 +21,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readBaseline, readClientBundle } from './baseline.mjs'
 import { contrast, isColor, parseColor, toOklch } from './color.mjs'
-import { GLASS, GLASS_WORST_CASE, glassCss } from './glass.mjs'
+import { GLASS, GLASS_LIGHT, GLASS_WORST_CASE, GLASS_WORST_CASE_LIGHT, glassCss } from './glass.mjs'
 import { gate, generate } from './palette.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -270,13 +270,16 @@ check(
 const glassRules = [...glassSource.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)]
   .map((match) => match[1].trim())
   .filter((selector) => selector.length > 0 && !selector.startsWith('@'))
-const unscopedGlass = glassRules.filter((selector) => !selector.includes('data-ds-dark-theme'))
+const isDarkRule = (selector) => selector.includes('body[data-ds-dark-theme]')
+const isLightRule = (selector) => selector.includes('body:not([data-ds-dark-theme])')
+const unscopedGlass = glassRules.filter((selector) => !isDarkRule(selector) && !isLightRule(selector))
+const lightGuarded = glassRules.filter(isLightRule).every((selector) => selector.includes('data-dsh-cinnabar-bg'))
 check(
-  'glass layer is dark-scoped',
-  unscopedGlass.length === 0,
-  unscopedGlass.length === 0
-    ? `${glassRules.length} rules, all under body[data-ds-dark-theme]`
-    : `unscoped: ${unscopedGlass.slice(0, 2).join(' | ')}`,
+  'glass layer is scheme-scoped',
+  unscopedGlass.length === 0 && lightGuarded,
+  unscopedGlass.length === 0 && lightGuarded
+    ? `${glassRules.length} rules, ${glassRules.filter(isDarkRule).length} dark + ${glassRules.filter(isLightRule).length} light (light off with a background image)`
+    : `${unscopedGlass.length} unscoped, light guard ${lightGuarded ? 'present' : 'missing'}: ${unscopedGlass.slice(0, 2).join(' | ')}`,
 )
 
 const glassFallbacks = /@supports not \(\(backdrop-filter/.test(glassSource) && /prefers-reduced-transparency: reduce/.test(glassSource)
@@ -286,29 +289,44 @@ check(
   glassFallbacks ? '@supports fallback + prefers-reduced-transparency' : 'a pane with no blur support must fall back to the solid token',
 )
 
-const worstBackdrop = parseColor(GLASS_WORST_CASE.backdrop)
-const glassPanes = [
-  ['composer', '--dsw-specific-input-major', GLASS.fill],
+const glassRecipes = [
+  {
+    name: 'dark',
+    fill: GLASS.fill,
+    worst: GLASS_WORST_CASE,
+    pane: () => parseColor(tokens['--dsw-specific-input-major'].dark),
+  },
+  {
+    name: 'light',
+    fill: GLASS_LIGHT.fill,
+    worst: GLASS_WORST_CASE_LIGHT,
+    // The light fill is a paper/white mix, not a bare token: reproduce it.
+    pane: () => {
+      const base = parseColor(tokens['--dsw-alias-bg-base'].light)
+      const tint = GLASS_LIGHT.tint / 100
+      return base.map((channel) => Math.round(channel * tint + 255 * (1 - tint)))
+    },
+  },
 ]
 const glassRows = []
-for (const [pane, fillToken, alpha] of glassPanes) {
-  const fill = tokens[fillToken]?.dark
-  if (fill === undefined) continue
-  const [r, g, b] = parseColor(fill)
-  const glassFill = [r, g, b, alpha]
-  for (const [fgToken, floor] of Object.entries(GLASS_WORST_CASE.floors)) {
-    const fg = tokens[fgToken]?.dark
+for (const recipe of glassRecipes) {
+  const backdrop = parseColor(recipe.worst.backdrop)
+  const [r, g, b] = recipe.pane()
+  const glassFill = [r, g, b, recipe.fill]
+  for (const [fgToken, floor] of Object.entries(recipe.worst.floors)) {
+    const fg = tokens[fgToken]?.[recipe.name]
     if (fg === undefined) continue
-    glassRows.push({ pane, fg: fgToken, floor, ratio: contrast(parseColor(fg), glassFill, worstBackdrop) })
+    glassRows.push({ recipe: recipe.name, fg: fgToken, floor, backdrop: recipe.worst.backdrop, ratio: contrast(parseColor(fg), glassFill, backdrop) })
   }
 }
 const glassBroken = glassRows.filter((row) => row.ratio < row.floor)
+const glassExpected = glassRecipes.reduce((count, recipe) => count + Object.keys(recipe.worst.floors).length, 0)
 check(
-  'glass panes stay readable over a white backdrop',
-  glassBroken.length === 0 && glassRows.length === glassPanes.length * Object.keys(GLASS_WORST_CASE.floors).length,
+  'glass panes stay readable over their bounds',
+  glassBroken.length === 0 && glassRows.length === glassExpected,
   glassBroken.length === 0
-    ? glassRows.map((row) => `${row.pane}/${row.fg.replace('--dsw-alias-', '')} ${row.ratio.toFixed(1)}:1`).join(', ')
-    : glassBroken.map((row) => `${row.pane}/${row.fg} ${row.ratio.toFixed(2)} < ${row.floor}`).join(', '),
+    ? glassRows.map((row) => `${row.recipe}/${row.fg.replace('--dsw-alias-', '')} ${row.ratio.toFixed(1)}:1 over ${row.backdrop}`).join(', ')
+    : glassBroken.map((row) => `${row.recipe}/${row.fg} ${row.ratio.toFixed(2)} < ${row.floor}`).join(', '),
 )
 
 // The composer hook and the seat scrim are the DOM contracts the glass rides

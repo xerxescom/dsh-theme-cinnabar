@@ -259,6 +259,8 @@ const pressed = find(tree, (node) => node.type === 'button' && node.props['aria-
 verify('chips follow the adopted preference', pressed !== null && pressed.props.children.includes('朱砂 · 深色'), pressed?.props.children ?? 'no pressed chip')
 const hint = find(tree, (node) => Array.isArray(node.props?.children) && node.props.children.some((child) => typeof child === 'string' && child.startsWith('已启用')))
 verify('row reports the live scheme', hint !== null && hint.props.children.join('').includes('朱砂 · 深色'), hint?.props.children.join('') ?? 'no hint')
+const seal = find(tree, (node) => node?.props?.style?.background === 'var(--dsw-alias-state-business-primary)')
+verify('settings row carries the cinnabar seal', seal !== null && seal.props['aria-hidden'] === true, seal === null ? 'no seal element' : '12px seal at the row title')
 
 // --------------------------------------------------------------------------
 // 3. The switch

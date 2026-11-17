@@ -13,7 +13,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { contrast, parseColor } from './color.mjs'
-import { GLASS, glassCss } from './glass.mjs'
+import { GLASS, GLASS_LIGHT, glassCss } from './glass.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
@@ -43,12 +43,22 @@ function cssBlock(mode) {
  * card. Same text that ships in `lib/client.js` — so a wrong number here would
  * show up in the preview, not only in the app.
  */
-const glassPreview = glassCss().replaceAll('body[data-ds-dark-theme]', '.mode[data-mode="dark"]')
+const glassPreview = glassCss()
+  .replaceAll('body:not([data-ds-dark-theme]):not([data-dsh-cinnabar-bg])', '.mode[data-mode="light"]')
+  .replaceAll('body[data-ds-dark-theme]', '.mode[data-mode="dark"]')
 
 /** What the composer's text clears once the pane is translucent over white. */
 const glassWorstCase = (() => {
   const [r, g, b] = parseColor(colour('--dsw-specific-input-major', 'dark'))
   return contrast(parseColor(colour('--dsw-alias-label-primary', 'dark')), [r, g, b, GLASS.fill], parseColor('#ffffff'))
+})()
+
+/** The light pane's tighter number: secondary text over a pure-black backdrop. */
+const lightWorstCase = (() => {
+  const [r, g, b] = parseColor(colour('--dsw-alias-bg-base', 'light'))
+  const tint = GLASS_LIGHT.tint / 100
+  const pane = [r, g, b].map((channel) => Math.round(channel * tint + 255 * (1 - tint)))
+  return contrast(parseColor(colour('--dsw-alias-label-secondary', 'light')), [...pane, GLASS_LIGHT.fill], parseColor('#000000'))
 })()
 
 const ratioRows = report.pairs
@@ -147,6 +157,7 @@ h3 { font-size: 13px; margin: 18px 0 8px; font-weight: 600; }
 .tok-l { color: var(--shiki-token-link); }
 
 .composer { background: var(--dsw-specific-input-major); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-lg); padding: 10px 14px; color: var(--dsw-alias-label-secondary); font-size: 13px; margin-top: 16px; }
+.seal { flex: none; width: 12px; height: 12px; border-radius: 2px; background: var(--dsw-alias-state-business-primary); box-shadow: inset 0 0 0 1px rgba(255,255,255,.55); }
 .status { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; }
 .pill { border-radius: 999px; padding: 2px 10px; }
 .pill.ok { background: var(--dsw-alias-state-success-tertiary); color: var(--dsw-alias-state-success-primary); }
@@ -270,12 +281,28 @@ ${glassPreview}
     </div>
 
     <div class="composer">输入消息…（正文 ${contrast(parseColor(colour('--dsw-alias-label-primary', 'light')), parseColor(colour('--dsw-specific-input-major', 'light'))).toFixed(1)}:1）</div>
+
+    <h3>液态玻璃 · 浅色</h3>
+    <div class="caption">填充 ${Math.round(GLASS_LIGHT.fill * 100)}% + ${GLASS_LIGHT.blurPx}px 模糊 + 朱砂描边；即使叠在纯黑图片上，次级文字也还有 ${lightWorstCase.toFixed(1)}:1。开启背景图时这一层退回实心纸面。</div>
+    <div class="glass-demo">
+      <div class="glass-under" aria-hidden="true">
+        <p>… 浅色下输入框也要浮在会话上 …</p>
+        <p>… 92% 的纸白混合色，让深色图片滚过时文字仍然读得清 …</p>
+        <p>… 顶部那道朱砂描边是光进入的方向 …</p>
+        <p>… 底部的棕黑边把面板压回纸面 …</p>
+        <p>… 菜单的雾面是 DSH 自带的，主题没有改它 …</p>
+        <p>… 开背景图时整块退回实心，座位渐隐也回来 …</p>
+      </div>
+      <div class="composer" data-composer-card>输入消息…</div>
+    </div>
   </main>
 
   <aside class="aside panel">
     <div class="label">设置</div>
     <h3 style="margin-top:6px">外观</h3>
     <div class="secondary">浅色 / 深色 / 跟随系统</div>
+    <h3>主题</h3>
+    <div class="secondary" style="display:flex;align-items:center;gap:6px"><span class="seal"></span>朱砂 · 主题</div>
     <h3>菜单</h3>
     <div class="menu">
       <div class="head">主题</div>
@@ -354,6 +381,8 @@ ${glassPreview}
     <div class="label">设置</div>
     <h3 style="margin-top:6px">外观</h3>
     <div class="secondary">浅色 / 深色 / 跟随系统</div>
+    <h3>主题</h3>
+    <div class="secondary" style="display:flex;align-items:center;gap:6px"><span class="seal"></span>朱砂 · 主题</div>
     <h3>菜单</h3>
     <div class="menu">
       <div class="head">主题</div>
