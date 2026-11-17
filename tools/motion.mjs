@@ -73,6 +73,18 @@ body [data-conversation-scroll] {
     transition-timing-function: var(--cinnabar-ease) !important;
     transition-delay: 0s !important;
   }
+
+  /* Freeze: while the incoming snapshot is being captured, colour transitions
+     must not be running — the capture records their start value and the element
+     then looks like it changed after the crossfade (one beat late). Zero
+     duration makes every token change land at its final value synchronously. */
+  body[data-dsh-vt-freeze],
+  body[data-dsh-vt-freeze] *,
+  body[data-dsh-vt-freeze] *::before,
+  body[data-dsh-vt-freeze] *::after {
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+  }
 }
 
 /* Selection: a warm ink wash instead of the browser default blue, which is

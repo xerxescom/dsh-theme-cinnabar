@@ -175,7 +175,7 @@ factory: () => { const React = require("react"); ... }
 | 效果 | 实现 | 退路 |
 |---|---|---|
 | 主题切换过渡 | `body` 与对话容器的 `background-color`/`color` 180ms 缓动 | 无（纯过渡） |
-| 切换交叉淡入 | 优先 View Transitions：整页快照交给合成器做 240ms 交叉；过渡层垫**旧**表面色，回调保持同步；不支持时退回 220ms 颜色过渡 | `prefers-reduced-motion` 时直接切换 |
+| 切换交叉淡入 | 优先 View Transitions：整页快照交给合成器做 240ms 交叉；过渡层垫旧表面色、拍新快照前冻结颜色过渡；不支持时退回 220ms 颜色过渡 | `prefers-reduced-motion` 时直接切换 |
 | 选区色 | `::selection` 用朱砂暖调，替换浏览器默认蓝 | 无 |
 | 焦点环 | `:focus-visible` 朱砂描边 + 28% 透明度光晕 | 无 |
 | 消息上浮 | `[data-chat-turn]` 6px 上移淡入，220ms | 靠 DSH 属性，属性没了只是不播 |
@@ -199,6 +199,11 @@ factory: () => { const React = require("react"); ... }
    在创建过渡**之前**把当前（旧）body 底色挂到 `--cinnabar-vt-bg`、垫在 `::view-transition`
    上：如果过渡层先于快照被画出来，它和当前页面同色，不会闪；中点会略偏旧色，但不会跳变。
    用新主题色垫底会变成整整一帧的白/黑闪。快照回调同时必须保持同步。
+5. **拍新快照前必须冻结颜色过渡。** 宿主的按钮和导航行自带 `background-color`/`color`
+   过渡：token 写入的同一刻它们从旧色开始动画，快照抓到的还是起始色；等交叉结束换回
+   真实 DOM，它们才变成新色——看起来就是「这些地方比背景慢了一拍」。捕获前给 `body`
+   挂 `data-dsh-vt-freeze`，把 `transition-duration`/`delay` 归零，颜色直接落到终值，
+   过渡结束后再撤掉。
 
 背景图也并进了同一个 `<style>`，卸载时整块回收。
 

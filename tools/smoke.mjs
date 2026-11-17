@@ -296,6 +296,11 @@ verify(
   transitions === 1 && smooth.document.body.attributes.has('data-dsh-theme-fade') === false,
   `transitions=${transitions}`,
 )
+verify(
+  'incoming snapshot freezes colour transitions',
+  smooth.document.body.attributes.has('data-dsh-vt-freeze') === true,
+  'data-dsh-vt-freeze',
+)
 
 // --------------------------------------------------------------------------
 // 5. The old package's keys
