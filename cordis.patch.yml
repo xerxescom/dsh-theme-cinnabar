@@ -4,5 +4,5 @@
 # what makes the Loader aware of the package at all, which is in turn what puts
 # the client bundle into the boot graph.
 - insert:
-    - id: dsh-theme-inkstone
-      name: 'dsh-theme-inkstone'
+    - id: dsh-theme-cinnabar
+      name: 'dsh-theme-cinnabar'

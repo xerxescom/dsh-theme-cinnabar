@@ -129,7 +129,7 @@ body[data-ds-dark-theme] [data-composer-card] {
     inset 0 -1px 0 rgba(0, 0, 0, ${glass.rimBottom}),
     var(--dsw-elevation-soft),
     0 22px 56px -20px rgba(0, 0, 0, 0.72);
-  transition: box-shadow var(--inkstone-dur) var(--inkstone-ease);
+  transition: box-shadow var(--cinnabar-dur) var(--cinnabar-ease);
 }
 
 /* The lens edge: a 1px gradient ring, bright where the light enters at the top

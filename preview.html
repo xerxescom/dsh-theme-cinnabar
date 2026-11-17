@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Inkstone 砚 — 预览</title>
+<title>Cinnabar 朱砂 — 预览</title>
 <style>
 [data-mode="light"] {
   color-scheme: light;
@@ -312,8 +312,8 @@
 
 /* The previewed motion palette, scoped per card the way the real plugin scopes
    it to <body>. Selection and focus therefore show the real values. */
-[data-mode="light"] { --inkstone-selection: #ffbfb4; --inkstone-selection-text: #12110e; --inkstone-focus-halo: color-mix(in srgb, #c41002 28%, transparent); }
-[data-mode="dark"] { --inkstone-selection: #753930; --inkstone-selection-text: #fef9f1; --inkstone-focus-halo: color-mix(in srgb, #db6150 28%, transparent); }
+[data-mode="light"] { --cinnabar-selection: #ffbfb4; --cinnabar-selection-text: #12110e; --cinnabar-focus-halo: color-mix(in srgb, #c41002 28%, transparent); }
+[data-mode="dark"] { --cinnabar-selection: #753930; --cinnabar-selection-text: #fef9f1; --cinnabar-focus-halo: color-mix(in srgb, #db6150 28%, transparent); }
 [data-mode="dark"] ::selection { background: #753930; color: #fef9f1; }
 
 :root { --gap: 16px; }
@@ -328,14 +328,14 @@ body {
 .mode[data-mode="dark"] { color-scheme: dark; }
 
 /* Selection: the warm wash replaces the browser's default blue. */
-.mode ::selection { background: var(--inkstone-selection); color: var(--inkstone-selection-text); }
+.mode ::selection { background: var(--cinnabar-selection); color: var(--cinnabar-selection-text); }
 
 /* Focus: cinnabar ring plus a soft halo. */
 .mode .composer:focus-visible,
 .mode button:focus-visible {
   outline: 2px solid var(--dsw-alias-state-business-primary);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px var(--inkstone-focus-halo);
+  box-shadow: 0 0 0 4px var(--cinnabar-focus-halo);
 }
 
 .label { font-size: 12px; color: var(--dsw-alias-label-tertiary); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
@@ -427,11 +427,11 @@ th { color: var(--dsw-alias-label-tertiary); font-weight: 600; }
   font-size: 12px;
   box-shadow: var(--dsw-elevation-panel);
 }
-@keyframes inkstone-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-@keyframes inkstone-pop { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes cinnabar-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes cinnabar-pop { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: no-preference) {
-  .motion-note.playing { animation: inkstone-rise 220ms cubic-bezier(.22,.61,.36,1) both; }
-  .motion-menu.playing { animation: inkstone-pop 140ms cubic-bezier(.22,.61,.36,1) both; transform-origin: top center; }
+  .motion-note.playing { animation: cinnabar-rise 220ms cubic-bezier(.22,.61,.36,1) both; }
+  .motion-menu.playing { animation: cinnabar-pop 140ms cubic-bezier(.22,.61,.36,1) both; transform-origin: top center; }
 }
 
 .bg-demo { position: relative; height: 260px; border-radius: var(--dsw-radius-md); overflow: hidden; border: 1px solid var(--dsw-alias-border-l2); }
@@ -486,7 +486,7 @@ input[type=range] { width: 220px; vertical-align: middle; }
     inset 0 -1px 0 rgba(0, 0, 0, 0.36),
     var(--dsw-elevation-soft),
     0 22px 56px -20px rgba(0, 0, 0, 0.72);
-  transition: box-shadow var(--inkstone-dur) var(--inkstone-ease);
+  transition: box-shadow var(--cinnabar-dur) var(--cinnabar-ease);
 }
 
 /* The lens edge: a 1px gradient ring, bright where the light enters at the top
@@ -605,7 +605,7 @@ input[type=range] { width: 220px; vertical-align: middle; }
   </aside>
 
   <main class="panel" style="background: var(--dsw-alias-bg-base); border:1px solid var(--dsw-alias-border-l1)">
-    <h1>浅色 · 砚</h1>
+    <h1>浅色 · 朱砂</h1>
     <div class="caption">正文 17.7:1 ·
       次要 5.4:1 ·
       链接 5.7:1</div>
@@ -620,7 +620,7 @@ input[type=range] { width: 220px; vertical-align: middle; }
       <p style="margin:0 0 8px">因为强调色在浅色背景上的对比度只有 <span class="inline-code">3.9:1</span>，低于正文的 4.5:1 下限。这套主题把链接抬到了 4.8:1，色相不变，只挪了亮度。</p>
       <div class="quote">引用块的颜色也一并抬高了，否则引用里的链接会比正文更淡。</div>
       <div class="code">
-        <div class="banner">ts · inkstone.ts</div>
+        <div class="banner">ts · cinnabar.ts</div>
 <pre><span class="tok-m">// 可读性优先：改色相，不改亮度层级</span>
 <span class="tok-k">export</span> <span class="tok-k">function</span> <span class="tok-f">recolour</span><span class="tok-x">(</span>seed<span class="tok-x">:</span> <span class="tok-c">string</span><span class="tok-x">,</span> <span class="tok-p">hue</span><span class="tok-x">:</span> <span class="tok-c">number</span><span class="tok-x">)</span> <span class="tok-x">{</span>
   <span class="tok-k">const</span> <span class="tok-p">target</span> <span class="tok-x">=</span> <span class="tok-s">'4.5:1'</span><span class="tok-x">;</span>
@@ -645,8 +645,8 @@ input[type=range] { width: 220px; vertical-align: middle; }
     <h3>菜单</h3>
     <div class="menu">
       <div class="head">主题</div>
-      <div class="item">砚 · 浅色</div>
-      <div class="item">砚 · 深色</div>
+      <div class="item">朱砂 · 浅色</div>
+      <div class="item">朱砂 · 深色</div>
       <div class="head">字体</div>
       <div class="item">正文字体</div>
     </div>
@@ -668,7 +668,7 @@ input[type=range] { width: 220px; vertical-align: middle; }
   </aside>
 
   <main class="panel" style="background: var(--dsw-alias-bg-base); border:1px solid var(--dsw-alias-border-l1)">
-    <h1>深色 · 砚</h1>
+    <h1>深色 · 朱砂</h1>
     <div class="caption">正文 15.5:1 ·
       次要 11.0:1 ·
       链接 4.5:1</div>
@@ -710,8 +710,8 @@ input[type=range] { width: 220px; vertical-align: middle; }
       <div class="composer" data-composer-card>输入消息…</div>
       <div class="menu" role="menu">
         <div class="head">主题</div>
-        <div class="item">砚 · 浅色</div>
-        <div class="item">砚 · 深色</div>
+        <div class="item">朱砂 · 浅色</div>
+        <div class="item">朱砂 · 深色</div>
       </div>
     </div>
   </main>
@@ -723,8 +723,8 @@ input[type=range] { width: 220px; vertical-align: middle; }
     <h3>菜单</h3>
     <div class="menu">
       <div class="head">主题</div>
-      <div class="item">砚 · 浅色</div>
-      <div class="item">砚 · 深色</div>
+      <div class="item">朱砂 · 浅色</div>
+      <div class="item">朱砂 · 深色</div>
     </div>
   </aside>
 </div>
@@ -738,7 +738,7 @@ input[type=range] { width: 220px; vertical-align: middle; }
   </div>
   <div class="motion-demo" id="motionDemo">
     <div class="motion-note">这句话可以拖选：选区用的是朱砂暖调，不是浏览器默认蓝。深色卡片里另有一份对应取值。</div>
-    <div class="motion-menu">菜单从锚点微微放大出现（inkstone-pop）</div>
+    <div class="motion-menu">菜单从锚点微微放大出现（cinnabar-pop）</div>
   </div>
 
   <h2 style="margin-top:26px">背景图 · 遮罩预览</h2>

@@ -16,7 +16,8 @@
  *      stylesheet, on restores both;
  *   4. choosing 深色 writes DSH's own preference — the value the settings
  *      document keeps, which is what makes the choice survive a restart;
- *   5. the pre-0.4 `choice` key is migrated once, and its scheme is carried over;
+ *   5. the old package's switch and pre-0.4 `choice` key are migrated once,
+ *      and the chosen scheme is carried over;
  *   6. unloading the plugin retracts both the layer and the stylesheet.
  *
  * Everything is a stub: no DOM, no React, no theme service. Node's `vm` runs
@@ -226,7 +227,7 @@ const press = (mounted, predicate) => {
 // --------------------------------------------------------------------------
 
 const fresh = mount()
-const layer = fresh.theme.layers.get('dsh-theme-inkstone')
+const layer = fresh.theme.layers.get('dsh-theme-cinnabar')
 verify('installs exactly one palette layer', fresh.theme.layers.size === 1, `${fresh.theme.layers.size} layer(s)`)
 verify(
   'layer carries every token as a light/dark pair',
@@ -238,7 +239,7 @@ verify(
 verify('registers no third-party theme id', fresh.theme.registrations === 0, `${fresh.theme.registrations} registration(s)`)
 verify('leaves the DSH preference alone on mount', fresh.theme.preference === 'system', fresh.theme.preference)
 verify('injects theme + slots', Array.isArray(fresh.exported.inject) && fresh.exported.inject.join(',') === 'theme,slots', String(fresh.exported.inject))
-verify('settings row is registered', fresh.registration !== null && fresh.registration.declaration.id === 'inkstone-theme', fresh.registration?.declaration.id ?? 'none')
+verify('settings row is registered', fresh.registration !== null && fresh.registration.declaration.id === 'cinnabar-theme', fresh.registration?.declaration.id ?? 'none')
 const freshStyle = fresh.document.styles[0]
 verify(
   'injects one stylesheet, enabled',
@@ -255,9 +256,9 @@ verify('late adoption does not retract the layer', fresh.theme.layers.size === 1
 fresh.theme.adopt('dark')
 const tree = fresh.registration.component(rowProps(fresh))
 const pressed = find(tree, (node) => node.type === 'button' && node.props['aria-pressed'] === true)
-verify('chips follow the adopted preference', pressed !== null && pressed.props.children.includes('砚 · 深色'), pressed?.props.children ?? 'no pressed chip')
+verify('chips follow the adopted preference', pressed !== null && pressed.props.children.includes('朱砂 · 深色'), pressed?.props.children ?? 'no pressed chip')
 const hint = find(tree, (node) => Array.isArray(node.props?.children) && node.props.children.some((child) => typeof child === 'string' && child.startsWith('已启用')))
-verify('row reports the live scheme', hint !== null && hint.props.children.join('').includes('砚 · 深色'), hint?.props.children.join('') ?? 'no hint')
+verify('row reports the live scheme', hint !== null && hint.props.children.join('').includes('朱砂 · 深色'), hint?.props.children.join('') ?? 'no hint')
 
 // --------------------------------------------------------------------------
 // 3. The switch
@@ -266,7 +267,7 @@ verify('row reports the live scheme', hint !== null && hint.props.children.join(
 press(fresh, (node) => node.props?.role === 'switch')
 verify('switch off retracts the layer', fresh.theme.layers.size === 0, `${fresh.theme.layers.size} layer(s)`)
 verify('switch off disables the stylesheet', freshStyle.disabled === true, `disabled=${freshStyle.disabled}`)
-verify('switch off is remembered', fresh.localStorage.getItem('dsh-theme-inkstone:enabled') === 'false', fresh.localStorage.getItem('dsh-theme-inkstone:enabled'))
+verify('switch off is remembered', fresh.localStorage.getItem('dsh-theme-cinnabar:enabled') === 'false', fresh.localStorage.getItem('dsh-theme-cinnabar:enabled'))
 verify('switch off leaves the DSH preference alone', fresh.theme.preference === 'dark', fresh.theme.preference)
 press(fresh, (node) => node.props?.role === 'switch')
 verify('switch on restores the layer', fresh.theme.layers.size === 1, `${fresh.theme.layers.size} layer(s)`)
@@ -277,18 +278,18 @@ verify('switch on re-enables the stylesheet', freshStyle.disabled === false, `di
 // --------------------------------------------------------------------------
 
 fresh.theme.adopt('light')
-press(fresh, (node) => node.type === 'button' && Array.isArray(node.props.children) && node.props.children.includes('砚 · 深色'))
+press(fresh, (node) => node.type === 'button' && Array.isArray(node.props.children) && node.props.children.includes('朱砂 · 深色'))
 verify('choosing 深色 writes the built-in preference', fresh.theme.preference === 'dark', fresh.theme.preference)
 
 // --------------------------------------------------------------------------
-// 5. The pre-0.4 key
+// 5. The old package's keys
 // --------------------------------------------------------------------------
 
 const legacyDark = mount({ storage: { 'dsh-theme-inkstone:choice': 'inkstone-dark' } })
 verify('legacy dark is carried into the preference', legacyDark.theme.preference === 'dark', legacyDark.theme.preference)
 verify(
   'legacy key is migrated and dropped',
-  legacyDark.localStorage.getItem('dsh-theme-inkstone:enabled') === 'true' && legacyDark.localStorage.getItem('dsh-theme-inkstone:choice') === null,
+  legacyDark.localStorage.getItem('dsh-theme-cinnabar:enabled') === 'true' && legacyDark.localStorage.getItem('dsh-theme-inkstone:choice') === null,
   `choice=${legacyDark.localStorage.getItem('dsh-theme-inkstone:choice')}`,
 )
 verify('legacy dark keeps the layer', legacyDark.theme.layers.size === 1, `${legacyDark.theme.layers.size} layer(s)`)
@@ -296,8 +297,17 @@ verify('legacy dark keeps the layer', legacyDark.theme.layers.size === 1, `${leg
 const legacyOff = mount({ storage: { 'dsh-theme-inkstone:choice': 'original' } })
 verify(
   'legacy "原主题" stays off',
-  legacyOff.localStorage.getItem('dsh-theme-inkstone:enabled') === 'false' && legacyOff.theme.layers.size === 0 && legacyOff.document.styles[0].disabled === true,
+  legacyOff.localStorage.getItem('dsh-theme-cinnabar:enabled') === 'false' && legacyOff.theme.layers.size === 0 && legacyOff.document.styles[0].disabled === true,
   `layers=${legacyOff.theme.layers.size}`,
+)
+
+const legacySwitch = mount({ storage: { 'dsh-theme-inkstone:enabled': 'false' } })
+verify(
+  "old package's switch is carried over",
+  legacySwitch.localStorage.getItem('dsh-theme-cinnabar:enabled') === 'false'
+    && legacySwitch.localStorage.getItem('dsh-theme-inkstone:enabled') === null
+    && legacySwitch.theme.layers.size === 0,
+  `layers=${legacySwitch.theme.layers.size}`,
 )
 
 // --------------------------------------------------------------------------

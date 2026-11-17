@@ -1,4 +1,4 @@
-# dsh-theme-inkstone 砚
+# dsh-theme-cinnabar 朱砂
 
 DeepSeek Harness Web 客户端的主题插件。配色方向是**暖墨加一点朱砂**：纸白的暖中性阶，
 一个朱砂红承担全部强调色。两个目标，按优先级排序：
@@ -91,30 +91,41 @@ DeepSeek Harness Web 客户端的主题插件。配色方向是**暖墨加一点
 
 - 挂载前探测 `[data-conversation-content]` / `[data-chat-turn]`，找不到就**自我放弃并 warn**；
 - 只清空四个真正画实色背景的容器的背景；
-- `ctx.effect` 里注册清理，卸载时把 `<style>`、`data-dsh-inkstone-bg` 属性和三个 CSS 变量全部回收。
+- `ctx.effect` 里注册清理，卸载时把 `<style>`、`data-dsh-cinnabar-bg` 属性和三个 CSS 变量全部回收。
 
-**启用方式**：运行时设置 `globalThis.__INKSTONE_BACKGROUND__ = { url: "file:///..." }`（或 `data:` URL、
-`http:` 地址）。没有设置它就是纯色主题。**这是全部——不读设置文件、不做界面**，因为你只说"图后面再找"。
+**启用方式**：运行时设置 `globalThis.__CINNABAR_BACKGROUND__ = { url: "file:///..." }`（或 `data:` URL、
+`http:` 地址）。旧名 `__INKSTONE_BACKGROUND__` 仍然认，迁移期不必改脚本。没有设置它就是纯色主题。
+**这是全部——不读设置文件、不做界面**，因为你只说"图后面再找"。
+
+## 从 0.4 升级
+
+0.5 起包名、bundle id 和内部标识从 `inkstone` 改成 `cinnabar`，配色与行为不变。旧的
+`localStorage` 开关（`dsh-theme-inkstone:enabled`）和 pre-0.4 的 `choice` 键会在首次启动时
+迁移一次；背景图的旧全局名仍然可用。已经装进 profile 的需要把依赖名和软链换成新包名，
+步骤见下一节。
 
 ## 安装
 
 > **先确认目标 profile。** 桌面客户端（Electron）读的是 `desktop`，CLI 默认的 `web` 是另一套。
 > 装错 profile 的症状很难查：服务端完全正常（层栈、软链、patch 全对），但界面毫无变化。
+>
+> 下文用 `<检出目录>` 指代本地检出。本机当前是 `E:\github_own\dsh-theme-inkstone`
+> （目录名可以随时改成 `dsh-theme-cinnabar`，包 id 只认 `package.json`）。
 
 **桌面端（`desktop` profile）**——该 profile 被 Electron 独占，CLI 会直接拒绝：
 
 ```sh
-dsh plugin --profile desktop add E:\github_own\dsh-theme-inkstone
+dsh plugin --profile desktop add <检出目录>
 # error: profile "desktop" is managed exclusively by the Electron application
 ```
 
 实测可行的做法是**不经过 pnpm 重装**，只改清单 + 建软链：
 
 1. 编辑 `$DSH_HOME/profiles/desktop/package.json`：
-   - `dependencies` 里加 `"dsh-theme-inkstone": "link:E:/github_own/dsh-theme-inkstone"`
-   - `dsh.profile.bundles` 末尾加 `"dsh-theme-inkstone"`
+   - `dependencies` 里加 `"dsh-theme-cinnabar": "link:<检出目录>"`
+   - `dsh.profile.bundles` 末尾加 `"dsh-theme-cinnabar"`
 2. 在该 profile 的 `node_modules/` 下建一条软链指向本地检出：
-   `ln -s /e/github_own/dsh-theme-inkstone node_modules/dsh-theme-inkstone`
+   `ln -s <检出目录> node_modules/dsh-theme-cinnabar`
    （Windows 下用 `mklink /D`，或 Git Bash 的 `ln -s`）
 3. 重启桌面客户端。
 
@@ -125,13 +136,13 @@ dsh plugin --profile desktop add E:\github_own\dsh-theme-inkstone
 **命令行 profile（`web`）**：
 
 ```sh
-dsh plugin --profile web add E:\github_own\dsh-theme-inkstone
+dsh plugin --profile web add <检出目录>
 ```
 
 `dsh plugin` 是 pnpm 的转发器；装完它把包名加进该 profile 的 `dsh.profile.bundles` 层栈。
 **重启对应进程后生效**——运行中的进程不会重读层栈。
 
-卸载：`dsh plugin --profile <name> remove dsh-theme-inkstone`，`ctx.effect` 精确回收两层。
+卸载：`dsh plugin --profile <name> remove dsh-theme-cinnabar`，`ctx.effect` 精确回收两层。
 desktop profile 同样要走界面或 pnpm。
 
 ## 开发时容易踩的三件事
@@ -222,17 +233,17 @@ DSH 里既可能是面板也可能是全屏遮罩——猜错的代价是整页�
 
 ## 怎么切换
 
-设置 → 通用 里有一行「砚 · 主题」：
+设置 → 通用 里有一行「朱砂 · 主题」：
 
-- **开关**：打开即用砚，关闭立刻回到 DSH 自带外观（token 层撤掉，动效/玻璃那张样式表整块停用）
+- **开关**：打开即用朱砂，关闭立刻回到 DSH 自带外观（token 层撤掉，动效/玻璃那张样式表整块停用）
 - **浅色 / 深色**：开关打开时出现。点它写的就是 DSH 自己的主题偏好，和上方「外观」行是**同一个值**——
-  两边谁点都同步，副标题随之显示「已启用「砚 · 深色」」
-- 偏好是「跟随系统」时两个 chip 都不高亮，副标题写「已启用「砚」· 深浅跟随系统」
+  两边谁点都同步，副标题随之显示「已启用「朱砂 · 深色」」
+- 偏好是「跟随系统」时两个 chip 都不高亮，副标题写「已启用「朱砂」· 深浅跟随系统」
 
-**装上默认就是开启。** 深浅不由砚自己记：DSH 的设置文档只持久化 `light` / `dark` / `system`，
-所以砚把配色做成 token 层跟着这个偏好走，**选一次深色，之后每次启动都是深色**。
+**装上默认就是开启。** 深浅不由朱砂自己记：DSH 的设置文档只持久化 `light` / `dark` / `system`，
+所以朱砂把配色做成 token 层跟着这个偏好走，**选一次深色，之后每次启动都是深色**。
 
-为什么不能像普通主题那样注册 `inkstone-dark` 再 `setTheme()`：第三方 id 不写进设置文档，
+为什么不能像普通主题那样注册 `cinnabar-dark` 再 `setTheme()`：第三方 id 不写进设置文档，
 `ThemeRuntime.adopt()` 每次拿到持久化快照都会把 preference 改回 `light`/`dark`/`system`，
 启动时切过去的 id 几百毫秒后就被宿主覆盖回来——这就是「每次进来都要重新选」的根因。
 
@@ -257,7 +268,7 @@ getComputedStyle(document.querySelector('[data-composer-card]')).backdropFilter
 ```
 
 - 深色：`blur(26px) saturate(1.6) brightness(0.94)` → 玻璃生效
-- 浅色或未启用砚：`none`
+- 浅色或未启用朱砂：`none`
 
 
 ## 开发
@@ -266,7 +277,7 @@ getComputedStyle(document.querySelector('[data-composer-card]')).backdropFilter
 node tools/palette.mjs        # 读基线 → 求解配色 → 跑门禁 → 写 tokens.json / report.json
 node tools/build-client.mjs   # tokens.json → lib/client.js
 node tools/check.mjs          # 30 项产物检查
-node tools/smoke.mjs          # 23 项运行时冒烟（vm 里加载真实 bundle）
+node tools/smoke.mjs          # 24 项运行时冒烟（vm 里加载真实 bundle）
 node tools/preview.mjs        # → preview.html
 node tools/render-preview.mjs # → preview.png（Node 自绘 PNG，不经过浏览器）
 npm run verify                # 以上全部
@@ -339,8 +350,8 @@ npm run verify                # 以上全部
 10. `factory` 接收 `require`（否则整页崩）；
 11. `apply` 的每一步都隔离（失败不波及宿主）；
 12. 配色是 `overrideTokens` 的一层、不是第三方主题 id（第三方 id 是会话级的，重启会被 adopt 覆盖）；
-13. 客户端 inject 了 `theme` 与 `slots`，装 token 层 + 设置行，记开关，写内置深浅偏好，迁移旧 key，
-    chip 跟随实时偏好，样式表跟随开关；
+13. 客户端 inject 了 `theme` 与 `slots`，装 token 层 + 设置行，记开关，写内置深浅偏好，
+    迁移旧包开关与 pre-0.4 的 `choice` 键，chip 跟随实时偏好，样式表跟随开关；
 14. 宿主半侧仍是无副作用的空 `apply()`。
 
 **可读性与动效**
@@ -363,7 +374,7 @@ npm run verify                # 以上全部
 
 （其余为上面的产物/契约检查，合计 30 项。）
 
-`node tools/smoke.mjs` 另跑 23 项运行时断言，`check.mjs` 看不到的那类问题归它：它用 Node 的
+`node tools/smoke.mjs` 另跑 24 项运行时断言，`check.mjs` 看不到的那类问题归它：它用 Node 的
 `vm` 加载**真实的** `lib/client.js`，配一份会像 `ThemeRuntime` 一样 `adopt()` 持久化偏好的桩，
 验证 token 层装上、adopt 之后不被撤掉、开关真的能撤层和停样式表、点「深色」写的是内置偏好、
 旧 key 迁移一次，以及卸载后 `<style>` 和层都收回。
@@ -372,7 +383,7 @@ npm run verify                # 以上全部
 
 | 项 | 结论 |
 |---|---|
-| 主题选择 | **不注册第三方 id**，改成一层 `overrideTokens`。第三方 id 是会话级的，`ThemeRuntime.adopt()` 会用持久化偏好覆盖它；砚的深浅沿用 DSH 的 `light`/`dark`/`system`，所以选择能被设置文档保存，重启即恢复 |
+| 主题选择 | **不注册第三方 id**，改成一层 `overrideTokens`。第三方 id 是会话级的，`ThemeRuntime.adopt()` 会用持久化偏好覆盖它；朱砂的深浅沿用 DSH 的 `light`/`dark`/`system`，所以选择能被设置文档保存，重启即恢复 |
 | 液态玻璃 | 暗色新增一层材质，**不新增 token**、不改配对；为让消息从玻璃背后滚过，撤掉输入框座位那层不透明渐隐。浅色完全不变 |
 | 状态色阶 | 完全保留基线。状态胶囊底色（`*-tertiary`）跟着色阶走，只换中性阶与强调色 |
 | 代码块 | 9 个 Shiki token 对**改色后的代码块**重解对比度，不是复制基线的明度 |
@@ -380,8 +391,8 @@ npm run verify                # 以上全部
 
 ## 已知限制
 
-- **「跟随系统」不在砚这一行里。** 它和上方「外观」行是同一个偏好，去那里选更直接；
-  砚这行只保留浅色/深色两个 chip，选中状态跟着偏好实时同步。
+- **「跟随系统」不在朱砂这一行里。** 它和上方「外观」行是同一个偏好，去那里选更直接；
+  朱砂这行只保留浅色/深色两个 chip，选中状态跟着偏好实时同步。
 - **背景层是唯一的脆弱点。** 它依赖 DSH 的 DOM 属性；属性一改，图上不来（会 warn），但配色不受影响。
   `check.mjs` 第 7、9 项就是为了在升级后立刻告诉你。
 - **背景图需要手动设置一个全局变量。** 没有设置界面——要的话得先确认 DSH 的设置项 API 再说。

@@ -369,6 +369,7 @@ const wiring = [
   ['remembers the switch', /localStorage\??\.setItem\(STORAGE_KEY/.test(clientSource)],
   ['writes the built-in scheme', /function chooseScheme\(ctx, id\)/.test(clientSource) && /ctx\.theme\.setTheme\(id\)/.test(clientSource)],
   ['migrates the pre-0.4 key', /LEGACY_KEY/.test(clientSource) && /removeItem\(LEGACY_KEY\)/.test(clientSource)],
+  ['migrates the old package switch', /LEGACY_ENABLED_KEY/.test(clientSource) && /removeItem\(LEGACY_ENABLED_KEY\)/.test(clientSource)],
   ['chips follow the live preference', /readPreference\(ctx\)/.test(clientSource) && /ctx\.on\("theme\/change", notify\)/.test(clientSource)],
   ['style layer follows the switch', /style\.disabled = !readEnabled\(\)/.test(clientSource) && /function setStyleEnabled/.test(clientSource)],
   ['background layer is retractable', /style\.remove\(\)/.test(clientSource)],

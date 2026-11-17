@@ -69,15 +69,15 @@ const html = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Inkstone 砚 — 预览</title>
+<title>Cinnabar 朱砂 — 预览</title>
 <style>
 ${cssBlock('light')}
 ${cssBlock('dark')}
 
 /* The previewed motion palette, scoped per card the way the real plugin scopes
    it to <body>. Selection and focus therefore show the real values. */
-[data-mode="light"] { --inkstone-selection: ${motion.selection.light}; --inkstone-selection-text: ${motion.selectionText.light}; --inkstone-focus-halo: ${motion.focusHalo.light}; }
-[data-mode="dark"] { --inkstone-selection: ${motion.selection.dark}; --inkstone-selection-text: ${motion.selectionText.dark}; --inkstone-focus-halo: ${motion.focusHalo.dark}; }
+[data-mode="light"] { --cinnabar-selection: ${motion.selection.light}; --cinnabar-selection-text: ${motion.selectionText.light}; --cinnabar-focus-halo: ${motion.focusHalo.light}; }
+[data-mode="dark"] { --cinnabar-selection: ${motion.selection.dark}; --cinnabar-selection-text: ${motion.selectionText.dark}; --cinnabar-focus-halo: ${motion.focusHalo.dark}; }
 [data-mode="dark"] ::selection { background: ${motion.selection.dark}; color: ${motion.selectionText.dark}; }
 
 :root { --gap: 16px; }
@@ -92,14 +92,14 @@ body {
 .mode[data-mode="dark"] { color-scheme: dark; }
 
 /* Selection: the warm wash replaces the browser's default blue. */
-.mode ::selection { background: var(--inkstone-selection); color: var(--inkstone-selection-text); }
+.mode ::selection { background: var(--cinnabar-selection); color: var(--cinnabar-selection-text); }
 
 /* Focus: cinnabar ring plus a soft halo. */
 .mode .composer:focus-visible,
 .mode button:focus-visible {
   outline: 2px solid var(--dsw-alias-state-business-primary);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px var(--inkstone-focus-halo);
+  box-shadow: 0 0 0 4px var(--cinnabar-focus-halo);
 }
 
 .label { font-size: 12px; color: var(--dsw-alias-label-tertiary); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
@@ -191,11 +191,11 @@ th { color: var(--dsw-alias-label-tertiary); font-weight: 600; }
   font-size: 12px;
   box-shadow: var(--dsw-elevation-panel);
 }
-@keyframes inkstone-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-@keyframes inkstone-pop { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes cinnabar-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes cinnabar-pop { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: no-preference) {
-  .motion-note.playing { animation: inkstone-rise 220ms cubic-bezier(.22,.61,.36,1) both; }
-  .motion-menu.playing { animation: inkstone-pop 140ms cubic-bezier(.22,.61,.36,1) both; transform-origin: top center; }
+  .motion-note.playing { animation: cinnabar-rise 220ms cubic-bezier(.22,.61,.36,1) both; }
+  .motion-menu.playing { animation: cinnabar-pop 140ms cubic-bezier(.22,.61,.36,1) both; transform-origin: top center; }
 }
 
 .bg-demo { position: relative; height: 260px; border-radius: var(--dsw-radius-md); overflow: hidden; border: 1px solid var(--dsw-alias-border-l2); }
@@ -239,7 +239,7 @@ ${glassPreview}
   </aside>
 
   <main class="panel" style="background: var(--dsw-alias-bg-base); border:1px solid var(--dsw-alias-border-l1)">
-    <h1>浅色 · 砚</h1>
+    <h1>浅色 · 朱砂</h1>
     <div class="caption">正文 ${contrast(parseColor(colour('--dsw-alias-label-primary', 'light')), parseColor(colour('--dsw-alias-bg-base', 'light'))).toFixed(1)}:1 ·
       次要 ${contrast(parseColor(colour('--dsw-alias-label-secondary', 'light')), parseColor(colour('--dsw-alias-bg-base', 'light'))).toFixed(1)}:1 ·
       链接 ${contrast(parseColor(colour('--dsw-alias-link', 'light')), parseColor(colour('--dsw-alias-bg-base', 'light'))).toFixed(1)}:1</div>
@@ -254,7 +254,7 @@ ${glassPreview}
       <p style="margin:0 0 8px">因为强调色在浅色背景上的对比度只有 <span class="inline-code">3.9:1</span>，低于正文的 4.5:1 下限。这套主题把链接抬到了 4.8:1，色相不变，只挪了亮度。</p>
       <div class="quote">引用块的颜色也一并抬高了，否则引用里的链接会比正文更淡。</div>
       <div class="code">
-        <div class="banner">ts · inkstone.ts</div>
+        <div class="banner">ts · cinnabar.ts</div>
 <pre><span class="tok-m">// 可读性优先：改色相，不改亮度层级</span>
 <span class="tok-k">export</span> <span class="tok-k">function</span> <span class="tok-f">recolour</span><span class="tok-x">(</span>seed<span class="tok-x">:</span> <span class="tok-c">string</span><span class="tok-x">,</span> <span class="tok-p">hue</span><span class="tok-x">:</span> <span class="tok-c">number</span><span class="tok-x">)</span> <span class="tok-x">{</span>
   <span class="tok-k">const</span> <span class="tok-p">target</span> <span class="tok-x">=</span> <span class="tok-s">'4.5:1'</span><span class="tok-x">;</span>
@@ -279,8 +279,8 @@ ${glassPreview}
     <h3>菜单</h3>
     <div class="menu">
       <div class="head">主题</div>
-      <div class="item">砚 · 浅色</div>
-      <div class="item">砚 · 深色</div>
+      <div class="item">朱砂 · 浅色</div>
+      <div class="item">朱砂 · 深色</div>
       <div class="head">字体</div>
       <div class="item">正文字体</div>
     </div>
@@ -302,7 +302,7 @@ ${glassPreview}
   </aside>
 
   <main class="panel" style="background: var(--dsw-alias-bg-base); border:1px solid var(--dsw-alias-border-l1)">
-    <h1>深色 · 砚</h1>
+    <h1>深色 · 朱砂</h1>
     <div class="caption">正文 ${contrast(parseColor(colour('--dsw-alias-label-primary', 'dark')), parseColor(colour('--dsw-alias-bg-base', 'dark'))).toFixed(1)}:1 ·
       次要 ${contrast(parseColor(colour('--dsw-alias-label-secondary', 'dark')), parseColor(colour('--dsw-alias-bg-base', 'dark'))).toFixed(1)}:1 ·
       链接 ${contrast(parseColor(colour('--dsw-alias-link', 'dark')), parseColor(colour('--dsw-alias-bg-base', 'dark'))).toFixed(1)}:1</div>
@@ -344,8 +344,8 @@ ${glassPreview}
       <div class="composer" data-composer-card>输入消息…</div>
       <div class="menu" role="menu">
         <div class="head">主题</div>
-        <div class="item">砚 · 浅色</div>
-        <div class="item">砚 · 深色</div>
+        <div class="item">朱砂 · 浅色</div>
+        <div class="item">朱砂 · 深色</div>
       </div>
     </div>
   </main>
@@ -357,8 +357,8 @@ ${glassPreview}
     <h3>菜单</h3>
     <div class="menu">
       <div class="head">主题</div>
-      <div class="item">砚 · 浅色</div>
-      <div class="item">砚 · 深色</div>
+      <div class="item">朱砂 · 浅色</div>
+      <div class="item">朱砂 · 深色</div>
     </div>
   </aside>
 </div>
@@ -372,7 +372,7 @@ ${glassPreview}
   </div>
   <div class="motion-demo" id="motionDemo">
     <div class="motion-note">这句话可以拖选：选区用的是朱砂暖调，不是浏览器默认蓝。深色卡片里另有一份对应取值。</div>
-    <div class="motion-menu">菜单从锚点微微放大出现（inkstone-pop）</div>
+    <div class="motion-menu">菜单从锚点微微放大出现（cinnabar-pop）</div>
   </div>
 
   <h2 style="margin-top:26px">背景图 · 遮罩预览</h2>

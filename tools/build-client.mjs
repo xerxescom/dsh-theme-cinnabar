@@ -14,16 +14,17 @@
  *      *preferences* the settings document keeps: `ThemeRuntime.adopt()`
  *      restores the stored preference whenever it lands, so an id selected at
  *      boot is session-scoped and gets reverted. Riding on the built-in
- *      preference is what makes "砚·深色" survive a restart.
+ *      preference is what makes "朱砂·深色" survive a restart.
  *   2. **A settings row** under Settings → General: an on/off switch plus
  *      浅色 / 深色 chips. The chips write the built-in preference, so the
  *      Appearance row above and this one are one choice, not two.
- *   3. **A liquid-glass layer**, dark scheme only: the composer and the design
- *      system's own menu material become frosted panes.
+ *   3. **A liquid-glass layer**, dark scheme only: the composer becomes a
+ *      frosted pane; the design system's own frosted menus are left alone.
  *   4. **An optional background layer**, off unless an image is supplied.
  *
- * `localStorage` now holds only whether 砚 is on; the scheme lives in the
- * settings document. A pre-0.4 `dsh-theme-inkstone:choice` is migrated once.
+ * `localStorage` now holds only whether 朱砂 is on; the scheme lives in the
+ * settings document. The old package's switch, and its pre-0.4 `choice` key,
+ * are migrated once.
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
@@ -67,7 +68,7 @@ function readReport() {
 
 /**
  * The motion stylesheet, embedded as a string so the bundle stays a single file
- * with no sidecar reads at load time. The palette reaches it as `--inkstone-*`
+ * with no sidecar reads at load time. The palette reaches it as `--cinnabar-*`
  * variables written by the client half, so the CSS carries no colour literals.
  */
 const MOTION_CSS = motionCss({
@@ -137,15 +138,17 @@ const source = [
   '',
   `${T}${T}const SOURCE = ${q(pkg.name)};`,
   `${T}${T}/** localStorage holds the on/off switch only; the scheme is the settings document's. */`,
-  `${T}${T}const STORAGE_KEY = "dsh-theme-inkstone:enabled";`,
-  `${T}${T}/** Pre-0.4 key, which stored a scheme id; migrated once by adoptLegacyChoice(). */`,
+  `${T}${T}const STORAGE_KEY = "dsh-theme-cinnabar:enabled";`,
+  `${T}${T}/** Pre-0.4 key under the old package name, which stored a scheme id. */`,
   `${T}${T}const LEGACY_KEY = "dsh-theme-inkstone:choice";`,
+  `${T}${T}/** The old package name's on/off switch, carried to STORAGE_KEY once. */`,
+  `${T}${T}const LEGACY_ENABLED_KEY = "dsh-theme-inkstone:enabled";`,
   '',
   `${T}${T}/**`,
   `${T}${T} * The motion layer, embedded rather than fetched: it is static text that the`,
   `${T}${T} * bundle already carries, and a second network round-trip would flash an`,
   `${T}${T} * unthemed frame on every load.`,
-  `${T}${T} * Colours reach it as the --inkstone-* variables below, so the CSS itself has`,
+  `${T}${T} * Colours reach it as the --cinnabar-* variables below, so the CSS itself has`,
   `${T}${T} * no literals that could drift from the palette.`,
   `${T}${T} */`,
   `${T}${T}const MOTION_VARIABLES = ${q(MOTION_VARS)};`,
@@ -181,7 +184,7 @@ const source = [
   `${T}${T}const PALETTE = {};`,
   `${T}${T}for (const name of Object.keys(PALETTE_LIGHT)) PALETTE[name] = { light: PALETTE_LIGHT[name], dark: PALETTE_DARK[name] };`,
   '',
-  `${T}${T}const SCHEME_LABELS = { light: "砚 · 浅色", dark: "砚 · 深色" };`,
+  `${T}${T}const SCHEME_LABELS = { light: "朱砂 · 浅色", dark: "朱砂 · 深色" };`,
   '',
   `${T}${T}const BACKGROUND = {`,
   `${T}${T}${T}overlay: { light: ${overlay.light}, dark: ${overlay.dark} },`,
@@ -189,7 +192,7 @@ const source = [
   `${T}${T}${T}blurPx: 3,`,
   `${T}${T}};`,
   '',
-  `${T}${T}const BG_ATTRIBUTE = "data-dsh-inkstone-bg";`,
+  `${T}${T}const BG_ATTRIBUTE = "data-dsh-cinnabar-bg";`,
   `${T}${T}const ANCHOR_PROBE = "[data-conversation-content], [data-chat-turn]";`,
   `${T}${T}const CLEARED_CONTAINERS = [`,
   `${T}${T}${T}"[data-conversation-content]",`,
@@ -200,7 +203,7 @@ const source = [
   '',
   `${T}${T}const inject = ["theme", "slots"];`,
   '',
-  `${T}${T}/** Read the switch. A fresh install starts with 砚 on. */`,
+  `${T}${T}/** Read the switch. A fresh install starts with 朱砂 on. */`,
   `${T}${T}function readEnabled() {`,
   `${T}${T}${T}try {`,
   `${T}${T}${T}${T}const stored = globalThis.localStorage?.getItem(STORAGE_KEY);`,
@@ -219,15 +222,22 @@ const source = [
   `${T}${T}}`,
   '',
   `${T}${T}/**`,
-  `${T}${T} * Carry the pre-0.4 choice over, once. That key stored a theme id, so a`,
-  `${T}${T} * stored "inkstone-dark" also writes the built-in dark preference — that is`,
-  `${T}${T} * the selection the user made, and the settings document is where it belongs.`,
+  `${T}${T} * Carry the old package's state over, once. Its on/off switch moves to`,
+  `${T}${T} * STORAGE_KEY; its pre-0.4 choice stored a theme id, so "inkstone-dark" also`,
+  `${T}${T} * writes the built-in dark preference — that is the selection the user made,`,
+  `${T}${T} * and the settings document is where it belongs.`,
   `${T}${T} * @param ctx - client cordis context.`,
   `${T}${T} */`,
   `${T}${T}function adoptLegacyChoice(ctx) {`,
   `${T}${T}${T}try {`,
   `${T}${T}${T}${T}const store = globalThis.localStorage;`,
-  `${T}${T}${T}${T}if (!store || store.getItem(STORAGE_KEY) !== null) return;`,
+  `${T}${T}${T}${T}if (!store) return;`,
+  `${T}${T}${T}${T}const oldEnabled = store.getItem(LEGACY_ENABLED_KEY);`,
+  `${T}${T}${T}${T}if (oldEnabled !== null) {`,
+  `${T}${T}${T}${T}${T}if (store.getItem(STORAGE_KEY) === null) store.setItem(STORAGE_KEY, oldEnabled);`,
+  `${T}${T}${T}${T}${T}store.removeItem(LEGACY_ENABLED_KEY);`,
+  `${T}${T}${T}${T}}`,
+  `${T}${T}${T}${T}if (store.getItem(STORAGE_KEY) !== null) return;`,
   `${T}${T}${T}${T}const legacy = store.getItem(LEGACY_KEY);`,
   `${T}${T}${T}${T}if (legacy === null) return;`,
   `${T}${T}${T}${T}store.setItem(STORAGE_KEY, legacy === "original" ? "false" : "true");`,
@@ -248,14 +258,14 @@ const source = [
   `${T}${T} * dark scheme used to need re-picking on every launch. The layer rides on the`,
   `${T}${T} * built-in preference instead, and nothing can revert it.`,
   `${T}${T} * @param ctx - client cordis context.`,
-  `${T}${T} * @param on - whether 砚 paints the active palette.`,
+  `${T}${T} * @param on - whether 朱砂 paints the active palette.`,
   `${T}${T} */`,
   `${T}${T}let paletteLayer = null;`,
   `${T}${T}function applyPalette(ctx, on) {`,
   `${T}${T}${T}if (on) {`,
   `${T}${T}${T}${T}if (paletteLayer !== null) return;`,
   `${T}${T}${T}${T}if (typeof ctx.theme?.overrideTokens !== "function") {`,
-  `${T}${T}${T}${T}${T}console.warn("[inkstone] theme service has no overrideTokens() — palette not applied (needs dsh-client-ui-theme >= 0.2)");`,
+  `${T}${T}${T}${T}${T}console.warn("[cinnabar] theme service has no overrideTokens() — palette not applied (needs dsh-client-ui-theme >= 0.2)");`,
   `${T}${T}${T}${T}${T}return;`,
   `${T}${T}${T}${T}}`,
   `${T}${T}${T}${T}paletteLayer = ctx.theme.overrideTokens(SOURCE, PALETTE);`,
@@ -267,7 +277,7 @@ const source = [
   `${T}${T}${T}try {`,
   `${T}${T}${T}${T}dispose();`,
   `${T}${T}${T}} catch (error) {`,
-  `${T}${T}${T}${T}console.warn("[inkstone] could not retract the palette layer:", error);`,
+  `${T}${T}${T}${T}console.warn("[cinnabar] could not retract the palette layer:", error);`,
   `${T}${T}${T}}`,
   `${T}${T}}`,
   '',
@@ -280,7 +290,7 @@ const source = [
   `${T}${T}/**`,
   `${T}${T} * Choose the colour scheme. This writes DSH's own preference: the settings`,
   `${T}${T} * document persists it, the Appearance row above shows it, and the palette`,
-  `${T}${T} * layer follows it. There is no separate 砚 scheme to remember.`,
+  `${T}${T} * layer follows it. There is no separate 朱砂 scheme to remember.`,
   `${T}${T} * @param ctx - client cordis context.`,
   `${T}${T} * @param id - "light" or "dark".`,
   `${T}${T} */`,
@@ -289,7 +299,7 @@ const source = [
   `${T}${T}${T}try {`,
   `${T}${T}${T}${T}if (typeof ctx.theme?.setTheme === "function") ctx.theme.setTheme(id);`,
   `${T}${T}${T}} catch (error) {`,
-  `${T}${T}${T}${T}console.warn("[inkstone] could not switch scheme:", error);`,
+  `${T}${T}${T}${T}console.warn("[cinnabar] could not switch scheme:", error);`,
   `${T}${T}${T}}`,
   `${T}${T}}`,
   '',
@@ -301,23 +311,23 @@ const source = [
   `${T}${T} */`,
   `${T}${T}function applySettingsRow(ctx) {`,
   `${T}${T}${T}if (typeof ctx.slots?.inject !== "function" || typeof ctx.slots.register !== "function") {`,
-  `${T}${T}${T}${T}console.warn("[inkstone] slots service unavailable — settings row not registered");`,
+  `${T}${T}${T}${T}console.warn("[cinnabar] slots service unavailable — settings row not registered");`,
   `${T}${T}${T}${T}return;`,
   `${T}${T}${T}}`,
   '',
   `${T}${T}${T}const react = require("react");`,
   `${T}${T}${T}const h = react.createElement;`,
   '',
-  `${T}${T}${T}function InkstoneRow(props) {`,
+  `${T}${T}${T}function CinnabarRow(props) {`,
   `${T}${T}${T}${T}const state = props.useStore((s) => s);`,
   `${T}${T}${T}${T}const on = state.enabled;`,
   `${T}${T}${T}${T}const scheme = state.preference;`,
   `${T}${T}${T}${T}return h("div", { style: ROW_STYLE },`,
   `${T}${T}${T}${T}${T}h("div", { style: HEAD_STYLE },`,
   `${T}${T}${T}${T}${T}${T}h("div", null,`,
-  `${T}${T}${T}${T}${T}${T}${T}h("div", { style: TITLE_STYLE }, "砚 · 主题"),`,
+  `${T}${T}${T}${T}${T}${T}${T}h("div", { style: TITLE_STYLE }, "朱砂 · 主题"),`,
   `${T}${T}${T}${T}${T}${T}${T}h("div", { style: HINT_STYLE }, on`,
-  `${T}${T}${T}${T}${T}${T}${T}${T}? scheme === "system" ? "已启用「砚」· 深浅跟随系统" : "已启用「" + SCHEME_LABELS[scheme] + "」"`,
+  `${T}${T}${T}${T}${T}${T}${T}${T}? scheme === "system" ? "已启用「朱砂」· 深浅跟随系统" : "已启用「" + SCHEME_LABELS[scheme] + "」"`,
   `${T}${T}${T}${T}${T}${T}${T}${T}: "已关闭，使用 DSH 自带外观"),`,
   `${T}${T}${T}${T}${T}${T}),`,
   `${T}${T}${T}${T}${T}${T}// The switch. Off retracts the token layer and the stylesheet, so the`,
@@ -326,7 +336,7 @@ const source = [
   `${T}${T}${T}${T}${T}${T}${T}type: "button",`,
   `${T}${T}${T}${T}${T}${T}${T}role: "switch",`,
   `${T}${T}${T}${T}${T}${T}${T}"aria-checked": on,`,
-  `${T}${T}${T}${T}${T}${T}${T}"aria-label": "启用砚主题",`,
+  `${T}${T}${T}${T}${T}${T}${T}"aria-label": "启用朱砂主题",`,
   `${T}${T}${T}${T}${T}${T}${T}onClick: () => props.setEnabled(!on),`,
   `${T}${T}${T}${T}${T}${T}${T}style: switchStyle(on),`,
   `${T}${T}${T}${T}${T}${T}}, h("span", { style: knobStyle(on) })),`,
@@ -349,7 +359,7 @@ const source = [
   `${T}${T}${T}${T});`,
   `${T}${T}${T}}`,
   '',
-  `${T}${T}${T}// One store for the row: whether 砚 is on, plus the live preference.`,
+  `${T}${T}${T}// One store for the row: whether 朱砂 is on, plus the live preference.`,
   `${T}${T}${T}let enabled = readEnabled();`,
   `${T}${T}${T}const listeners = new Set();`,
   `${T}${T}${T}const notify = () => {`,
@@ -382,12 +392,12 @@ const source = [
   '',
   `${T}${T}${T}ctx.slots.inject("settings.general.item", () => ctx.slots.register({`,
   `${T}${T}${T}${T}name: "settings.general.item",`,
-  `${T}${T}${T}${T}id: "inkstone-theme",`,
+  `${T}${T}${T}${T}id: "cinnabar-theme",`,
   `${T}${T}${T}${T}// 13 sits between font-size (11) and transcript-view (12)... which is taken;`,
   `${T}${T}${T}${T}// 13 keeps us next to the other appearance rows without colliding.`,
   `${T}${T}${T}${T}order: 13,`,
   `${T}${T}${T}${T}inject: () => ({ useStore, setEnabled, setScheme }),`,
-  `${T}${T}${T}}, InkstoneRow));`,
+  `${T}${T}${T}}, CinnabarRow));`,
   `${T}${T}}`,
   '',
   `${T}${T}const ROW_STYLE = { display: "flex", flexDirection: "column", gap: "8px" };`,
@@ -439,7 +449,7 @@ const source = [
   `${T}${T}${T}color: "var(--dsw-alias-label-primary)",`,
   `${T}${T}});`,
   '',
-  `${T}${T}/** The one <style> this plugin owns; disabled (not removed) while 砚 is off. */`,
+  `${T}${T}/** The one <style> this plugin owns; disabled (not removed) while 朱砂 is off. */`,
   `${T}${T}let styleElement = null;`,
   '',
   `${T}${T}function setStyleEnabled(on) {`,
@@ -461,8 +471,8 @@ const source = [
   `${T}${T}${T}const body = document.body;`,
   `${T}${T}${T}if (hasImage) {`,
   `${T}${T}${T}${T}body.setAttribute(BG_ATTRIBUTE, "");`,
-  `${T}${T}${T}${T}body.style.setProperty("--inkstone-bg-image", "url(" + JSON.stringify(background.url) + ")");`,
-  `${T}${T}${T}${T}body.style.setProperty("--inkstone-bg-blur", BACKGROUND.blurPx + "px");`,
+  `${T}${T}${T}${T}body.style.setProperty("--cinnabar-bg-image", "url(" + JSON.stringify(background.url) + ")");`,
+  `${T}${T}${T}${T}body.style.setProperty("--cinnabar-bg-blur", BACKGROUND.blurPx + "px");`,
   `${T}${T}${T}}`,
   '',
   `${T}${T}${T}// ctx.effect runs its body now and disposes what it returns, so the cleanup`,
@@ -472,8 +482,8 @@ const source = [
   `${T}${T}${T}${T}style.remove();`,
   `${T}${T}${T}${T}styleElement = null;`,
   `${T}${T}${T}${T}body.removeAttribute(BG_ATTRIBUTE);`,
-  `${T}${T}${T}${T}body.style.removeProperty("--inkstone-bg-image");`,
-  `${T}${T}${T}${T}body.style.removeProperty("--inkstone-bg-blur");`,
+  `${T}${T}${T}${T}body.style.removeProperty("--cinnabar-bg-image");`,
+  `${T}${T}${T}${T}body.style.removeProperty("--cinnabar-bg-blur");`,
   `${T}${T}${T}}, SOURCE + ": style layer");`,
   `${T}${T}}`,
   '',
@@ -491,7 +501,7 @@ ${T}${T}function step(label, fn) {
 ${T}${T}${T}try {
 ${T}${T}${T}${T}fn();
 ${T}${T}${T}} catch (error) {
-${T}${T}${T}${T}console.warn("[inkstone] " + label + " failed; continuing without it:", error);
+${T}${T}${T}${T}console.warn("[cinnabar] " + label + " failed; continuing without it:", error);
 ${T}${T}${T}}
 ${T}${T}}`,
   '',
@@ -505,7 +515,8 @@ ${T}${T}}`,
   `${T}${T}${T}${T}ctx.effect(() => () => applyPalette(ctx, false), SOURCE + ": palette layer");`,
   `${T}${T}${T}});`,
   `${T}${T}${T}step("register settings row", () => applySettingsRow(ctx));`,
-  `${T}${T}${T}step("style layer", () => applyStyleLayer(ctx, globalThis.__INKSTONE_BACKGROUND__));`,
+  `${T}${T}${T}// The old global is still honoured so a saved snippet keeps working.`,
+  `${T}${T}${T}step("style layer", () => applyStyleLayer(ctx, globalThis.__CINNABAR_BACKGROUND__ ?? globalThis.__INKSTONE_BACKGROUND__));`,
   `${T}${T}}`,
   '',
   `${T}${T}exports.apply = apply;`,

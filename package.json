@@ -1,7 +1,7 @@
 {
-  "name": "dsh-theme-inkstone",
-  "version": "0.4.0",
-  "description": "Inkstone (砚) — a readability-first theme for the DeepSeek Harness web client: one --dsw-* token layer with a contrast gate, a dark-only liquid-glass material, and an optional washed background image.",
+  "name": "dsh-theme-cinnabar",
+  "version": "0.5.0",
+  "description": "Cinnabar (朱砂) — a readability-first theme for the DeepSeek Harness web client: one --dsw-* token layer with a contrast gate, a dark-only liquid-glass material, and an optional washed background image.",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -61,6 +61,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/xerxescom/dsh-theme-inkstone.git"
+    "url": "git+https://github.com/xerxescom/dsh-theme-cinnabar.git"
   }
 }
