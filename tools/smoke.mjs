@@ -67,6 +67,7 @@ const createDocument = () => {
   return {
     head: { appendChild: (node) => head.push(node) },
     body,
+    documentElement: { offsetHeight: 0 },
     styles: head,
     createElement: (tag) => ({
       tagName: String(tag).toUpperCase(),
@@ -175,6 +176,7 @@ const createContext = (theme) => {
 
 const mount = ({ storage = {}, theme = createTheme() } = {}) => {
   const document = createDocument()
+  const setThemeBefore = Object.getOwnPropertyDescriptor(theme, 'setTheme')
   const map = new Map(Object.entries(storage))
   const localStorage = {
     getItem: (key) => (map.has(key) ? map.get(key) : null),
@@ -195,7 +197,7 @@ const mount = ({ storage = {}, theme = createTheme() } = {}) => {
   const exported = entry.factory((name) => (name === 'react' ? react : {}))
   const context = createContext(theme)
   exported.apply(context.ctx)
-  return { exported, theme, localStorage, document, ...context }
+  return { exported, theme, localStorage, document, setThemeBefore, ...context }
 }
 
 const find = (node, predicate) => {
@@ -282,6 +284,7 @@ verify('switch on re-enables the stylesheet', freshStyle.disabled === false, `di
 fresh.theme.adopt('light')
 press(fresh, (node) => node.type === 'button' && Array.isArray(node.props.children) && node.props.children.includes('朱砂 · 深色'))
 verify('choosing 深色 writes the built-in preference', fresh.theme.preference === 'dark', fresh.theme.preference)
+verify('theme switch arms the crossfade', fresh.document.body.attributes.has('data-dsh-theme-fade'), 'data-dsh-theme-fade')
 
 // --------------------------------------------------------------------------
 // 5. The old package's keys
@@ -319,6 +322,9 @@ verify(
 for (const cleanup of fresh.effects) if (typeof cleanup === 'function') cleanup()
 verify('unmount retracts the layer', fresh.theme.layers.size === 0, `${fresh.theme.layers.size} layer(s)`)
 verify('unmount removes the stylesheet', freshStyle.removed === true, `removed=${freshStyle.removed}`)
+const setThemeAfter = Object.getOwnPropertyDescriptor(fresh.theme, 'setTheme')
+verify('theme switch patch is removed on unmount', setThemeAfter?.value === fresh.setThemeBefore?.value, setThemeAfter === undefined ? 'no own method' : 'restored')
+verify('unmount clears the crossfade flag', fresh.document.body.attributes.has('data-dsh-theme-fade') === false, `flag=${fresh.document.body.attributes.has('data-dsh-theme-fade')}`)
 
 // --------------------------------------------------------------------------
 // Report

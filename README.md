@@ -175,19 +175,24 @@ factory: () => { const React = require("react"); ... }
 | 效果 | 实现 | 退路 |
 |---|---|---|
 | 主题切换过渡 | `body` 与对话容器的 `background-color`/`color` 180ms 缓动 | 无（纯过渡） |
+| 切换交叉淡入 | 切换前挂 `data-dsh-theme-fade` 并对整棵树做 260ms 颜色/透明度过渡，写偏好后 320ms 撤掉 | `prefers-reduced-motion` 时直接切换 |
 | 选区色 | `::selection` 用朱砂暖调，替换浏览器默认蓝 | 无 |
 | 焦点环 | `:focus-visible` 朱砂描边 + 28% 透明度光晕 | 无 |
 | 消息上浮 | `[data-chat-turn]` 6px 上移淡入，220ms | 靠 DSH 属性，属性没了只是不播 |
 | 面板弹出 | 菜单/对话框 `scale(.985)` 展开，140ms | 同上 |
 | 光标色 | `caret-color` 跟随强调色 | 无 |
 
-**两条硬约束：**
+**三条硬约束：**
 
 1. **动效不影响可读性。** 选区是"文字背景"，所以它也要过门禁：浅色 `#ffbfb4` 上是
    12.0:1，深色 `#753930` 上是 8.4:1，都高于正文的 4.5 下限。这两个值由
    `deriveMotion()` 算出来并写进 `report.json`，不是手填的。
 2. **尊重 reduced-motion。** 所有动画都在 `@media (prefers-reduced-motion: no-preference)`
    里；系统设了减少动效时，一切瞬间完成、无位移。
+3. **只在切换那 320ms 内接管过渡。** 平时不写全局 `transition`，否则会覆盖宿主自己的
+   opacity/transform 动效。切换时必须**先挂属性并强制一次样式刷新**：宿主在 `setTheme`
+   里同步写 token，如果在 `theme/change` 里才加类，新 token 和过渡声明会落进同一次样式
+   计算，浏览器直接跳变——这就是"生硬"的根因。
 
 背景图也并进了同一个 `<style>`，卸载时整块回收。
 
@@ -283,7 +288,7 @@ getComputedStyle(document.querySelector('[data-composer-card]')).backdropFilter
 node tools/palette.mjs        # 读基线 → 求解配色 → 跑门禁 → 写 tokens.json / report.json
 node tools/build-client.mjs   # tokens.json → lib/client.js
 node tools/check.mjs          # 30 项产物检查
-node tools/smoke.mjs          # 25 项运行时冒烟（vm 里加载真实 bundle）
+node tools/smoke.mjs          # 28 项运行时冒烟（vm 里加载真实 bundle）
 node tools/preview.mjs        # → preview.html
 node tools/render-preview.mjs # → preview.png（Node 自绘 PNG，不经过浏览器）
 npm run verify                # 以上全部
@@ -358,7 +363,8 @@ npm run verify                # 以上全部
 12. 配色是 `overrideTokens` 的一层、不是第三方主题 id（第三方 id 是会话级的，重启会被 adopt 覆盖）；
 13. 客户端 inject 了 `theme` 与 `slots`，装 token 层 + 设置行，记开关，写内置深浅偏好，
     迁移旧包开关与 pre-0.4 的 `choice` 键，chip 跟随实时偏好，样式表跟随开关；
-14. 宿主半侧仍是无副作用的空 `apply()`。
+14. 切换主题时先挂过渡并强制一次样式刷新；`setTheme` 的包装在卸载时还原；
+15. 宿主半侧仍是无副作用的空 `apply()`。
 
 **可读性与动效**
 
@@ -380,7 +386,7 @@ npm run verify                # 以上全部
 
 （其余为上面的产物/契约检查，合计 30 项。）
 
-`node tools/smoke.mjs` 另跑 25 项运行时断言，`check.mjs` 看不到的那类问题归它：它用 Node 的
+`node tools/smoke.mjs` 另跑 28 项运行时断言，`check.mjs` 看不到的那类问题归它：它用 Node 的
 `vm` 加载**真实的** `lib/client.js`，配一份会像 `ThemeRuntime` 一样 `adopt()` 持久化偏好的桩，
 验证 token 层装上、adopt 之后不被撤掉、开关真的能撤层和停样式表、点「深色」写的是内置偏好、
 旧 key 迁移一次，以及卸载后 `<style>` 和层都收回。
@@ -404,6 +410,9 @@ npm run verify                # 以上全部
 - **背景图需要手动设置一个全局变量。** 没有设置界面——要的话得先确认 DSH 的设置项 API 再说。
 - **浅色玻璃在开启背景图时不出场。** 背景图让输入框下面的底不可控，浅色退回实心纸面；
   暗色玻璃不受影响。
+- **系统跟随的切换没有交叉淡入。** 交叉淡入挂在 `setTheme`（用户主动写偏好）上；系统
+  配色翻转走的是 `publish()`，到我们手里时已经画完了。宿主若把 `setTheme` 设成不可写，
+  包装会安静退回无过渡切换，不影响功能。
 - **`--dsw-alias-label-primary` 只有一组值**，深色下要同时读在页面表面（17.8:1）和菜单分组标题、
   提示框这类近白/近黑浮层上。浮层上的配对已经在门禁里覆盖并通过；这不是拆分 token 的问题，
   而是这类浮层本来就该用 `--dsw-alias-tooltip-label` 之类的专用前景色。

@@ -45,6 +45,25 @@ body [data-conversation-scroll] {
               color var(--cinnabar-dur) var(--cinnabar-ease);
 }
 
+/* Theme switch crossfade. The client half arms this attribute for ~320ms
+   around a preference write and forces one style flush before the write:
+   without that flush the transition would be declared in the same style
+   calculation as the new token values, and the browser would apply both
+   without animating. Always-on transitions cannot do this job — they would
+   replace the host's own opacity/transform transitions everywhere. */
+@media (prefers-reduced-motion: no-preference) {
+  body[data-dsh-theme-fade],
+  body[data-dsh-theme-fade] *,
+  body[data-dsh-theme-fade] *::before,
+  body[data-dsh-theme-fade] *::after {
+    transition-property: color, background-color, border-color, outline-color,
+      box-shadow, fill, stroke, opacity, transform !important;
+    transition-duration: 260ms !important;
+    transition-timing-function: var(--cinnabar-ease) !important;
+    transition-delay: 0s !important;
+  }
+}
+
 /* Selection: a warm ink wash instead of the browser default blue, which is
    the loudest unthemed thing left on the page once the palette lands. */
 ::selection {
