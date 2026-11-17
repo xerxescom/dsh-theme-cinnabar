@@ -175,7 +175,7 @@ factory: () => { const React = require("react"); ... }
 | 效果 | 实现 | 退路 |
 |---|---|---|
 | 主题切换过渡 | `body` 与对话容器的 `background-color`/`color` 180ms 缓动 | 无（纯过渡） |
-| 切换交叉淡入 | 优先 View Transitions：整页快照交给合成器做 240ms 交叉；过渡层垫新表面色、等两帧再截图；不支持时退回 220ms 颜色过渡 | `prefers-reduced-motion` 时直接切换 |
+| 切换交叉淡入 | 优先 View Transitions：整页快照交给合成器做 240ms 交叉；过渡层垫新表面色，回调保持同步；不支持时退回 220ms 颜色过渡 | `prefers-reduced-motion` 时直接切换 |
 | 选区色 | `::selection` 用朱砂暖调，替换浏览器默认蓝 | 无 |
 | 焦点环 | `:focus-visible` 朱砂描边 + 28% 透明度光晕 | 无 |
 | 消息上浮 | `[data-chat-turn]` 6px 上移淡入，220ms | 靠 DSH 属性，属性没了只是不播 |
@@ -196,8 +196,9 @@ factory: () => { const React = require("react"); ... }
    计算，浏览器直接跳变，这就是"生硬"的根因。
 4. **过渡层必须垫一块不透明的主题色。** UA 的交叉在中点时两帧各半透明，背后露出的不是
    页面背景而是画布；`color-scheme` 又在切换瞬间就翻了，所以中点会闪一下另一套底色。
-   写入偏好后把新的 body 底色挂到 `--cinnabar-vt-bg`、垫在 `::view-transition` 上；同时
-   等两帧再让浏览器截图，让图标与 React 的变更先落定，避免淡入结束时再跳一下。
+   写入偏好后把新的 body 底色挂到 `--cinnabar-vt-bg`、垫在 `::view-transition` 上；
+   快照回调必须保持同步——一旦有异步等待，浏览器会先把已更新的页面画出来再接管快照，
+   那就是整整一帧的「新主题闪」。
 
 背景图也并进了同一个 `<style>`，卸载时整块回收。
 
