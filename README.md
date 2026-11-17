@@ -8,12 +8,14 @@ DeepSeek Harness Web 客户端的主题插件。配色方向是**暖墨加一点
 2. **可选的背景图**——一张图铺在会话后面，上面盖一层固定强度的表面色遮罩，再叠一点模糊。
    默认关闭，纯色表面就是完整主题。
 
-它注册**两个可选主题**（`inkstone-light` / `inkstone-dark`）和**一个设置行**，不碰布局、
-不改动 DSH 自带的外观设置。装上之后默认选中「砚 · 浅色」，随时可以在设置里切回原主题。
+它**不注册第三方主题**，而是把全部 token 作为**一层覆盖**叠在 DSH 自带的浅色/深色上，再加
+**一个设置行**和暗色方案上的一层**液态玻璃**材质；不碰布局、不改动 DSH 自带的外观设置。
+装上默认开启，深浅沿用「外观」里的浅色/深色/跟随系统——**选过一次深色，重启还是深色**。
+玻璃只作用于暗色，浅色仍是原来的纯纸面。
 
 ```
 纸白  #faf7f2        暖中性阶：OKLCH 80°，彩度 0.006–0.016
-墨黑  #191513        深色表面，同样暖偏
+墨黑  #23201c        深色表面，同样暖偏
 朱砂  #c41002        浅色强调（对比度 5.74:1）
       #db6150        深色强调（对比度 5.04:1）
 ```
@@ -132,7 +134,7 @@ dsh plugin --profile web add E:\github_own\dsh-theme-inkstone
 卸载：`dsh plugin --profile <name> remove dsh-theme-inkstone`，`ctx.effect` 精确回收两层。
 desktop profile 同样要走界面或 pnpm。
 
-## 开发时容易踩的两件事
+## 开发时容易踩的三件事
 
 **一、`factory` 必须接收 `require`。** 模块表把 `require` 作为 factory 的参数传进来；
 写成 `factory: () => {}` 再在内部调用 `require("react")` 会抛 `ReferenceError`，
@@ -148,7 +150,12 @@ factory: () => { const React = require("react"); ... }
 **二、`apply` 的每一步都要异常隔离。** 主题是装饰，设置行挂不上也不该让应用起不来。
 `apply` 里用 `step(label, fn)` 包住每一段，失败只 `console.warn`。
 
-这两条都由 `tools/check.mjs` 守着（"factory accepts require" / "apply steps are isolated"）。
+**三、`ctx.effect` 的返回值才是清理函数。** 它**现在**就执行回调，把回调的返回当作 disposer；
+写成 `ctx.effect(() => { style.remove() })` 会在样式注入的同一帧又把它删掉。
+本仓库的样式层曾经就是这个写法，玻璃和动效其实一直没上过屏，很容易误判成 HMR 没生效。
+
+前两条由 `tools/check.mjs` 守着（"factory accepts require" / "apply steps are isolated"），
+第三条由 `tools/smoke.mjs` 里「unmount removes the stylesheet」守着。
 
 ## 动效与质感
 
@@ -173,16 +180,61 @@ factory: () => { const React = require("react"); ... }
 
 背景图也并进了同一个 `<style>`，卸载时整块回收。
 
+## 液态玻璃（暗色）
+
+暗色方案多了一层材质：**磨砂玻璃**。它不新增 token，也不改任何一组配对，是一份独立
+样式表（`tools/glass.mjs` → `lib/client.js` 里的 `GLASS_CSS`），只作用于
+`body[data-ds-dark-theme]`。
+
+| 面 | 钩子 | 主题做了什么 |
+|---|---|---|
+| 输入框 | `[data-composer-card]` | 88% 半透明填充 + 26px 模糊 + 1px 渐变描边（透镜边）+ 顶部白色高光 + 底部暗边 + 朱砂辉光 |
+| 输入框座位 | `[data-composer-seat]` | 撤掉那层不透明渐隐，让消息真的从玻璃后面滚过 |
+| 菜单 / 浮层 | —— | **没有改**。DSH 自己就有雾面菜单（半透明填充 + `blur(40px)`），主题不重复实现 |
+
+输入框是这层唯一的主角：它贴在会话底部，消息从它下面滚过。顶部那道白色内描边和底部
+那道暗边缺一不可——只有半透明没有光边，看起来是"淡了"，不是"玻璃"。
+
+**为什么撤掉那层渐隐。** 输入框的座位上，DSH 垫了一段 36px 的渐隐（透明 →
+`--dsw-alias-bg-base` 不透明），那是给**实心**输入框用的：没有它，滚动文字会直接撞进
+输入框。玻璃自己就是可读性措施（填充 + 模糊，见下），留着那段渐隐等于把材质挡在
+后面——所以暗色下把它撤掉，文字这才真的从玻璃背面过。浅色不动，因为浅色没有玻璃。
+
+**为什么没碰菜单。** 查基线时发现 `--dsw-menu-backdrop-filter: blur(40px) saturate(150%)`
+和 `--dsw-menu-surface-fill` 本来就是 DSH 的菜单材质，菜单早就是雾面的；主题再覆盖一遍
+只会把它做糊。`check.mjs` 里有一条专门盯着这件事：玻璃样式里出现菜单变量就报错。
+
+**为什么只做暗色。** 浅色的可读性建立在"暖纸"这个不透明的表面上，把纸变成半透明
+等于把这个前提拿掉；深色本来就是靠层级拉开距离，半透明更自然。浅色版本要另配一套
+填充/光边，不是加个开关。
+
+**可读性怎么保证。** 玻璃上的文字仍要过门禁，但背景不再是固定表面，而是"万一是最
+亮的背景"。上界取**纯白**：`--dsw-specific-input-major`（#393733）取 88% 叠在 #fff
+上得到 #514f4b，正文 7.78:1、次级文字 5.56:1，都高于各自下限。
+`check.mjs` 每次用 `tokens.json` 的当前值重算这两组，不信任这里写死的数字。
+
+**退路两条**：`@supports not (backdrop-filter…)` 时回到不透明表面；
+`prefers-reduced-transparency: reduce` 时整块材质撤掉。两条都只改玻璃自己的声明。
+
+**已知取舍**：设置弹窗（`role=dialog`）和侧栏这一版没做。侧栏根节点没有稳定钩子
+（类名哈希，`data-slot=sidebar` 是 `display:contents` 的空壳），而 `role=dialog` 在
+DSH 里既可能是面板也可能是全屏遮罩——猜错的代价是整页糊一层。等有确定性钩子再加。
+
 ## 怎么切换
 
 设置 → 通用 里有一行「砚 · 主题」：
 
-- **开关**：打开即用砚，关闭立刻回到 DSH 自带外观
-- **浅色 / 深色**：开关打开时出现，两个 chip 切换方案
-- 副标题实时显示当前状态（"已启用「砚 · 浅色」" / "已关闭，使用 DSH 自带外观"）
+- **开关**：打开即用砚，关闭立刻回到 DSH 自带外观（token 层撤掉，动效/玻璃那张样式表整块停用）
+- **浅色 / 深色**：开关打开时出现。点它写的就是 DSH 自己的主题偏好，和上方「外观」行是**同一个值**——
+  两边谁点都同步，副标题随之显示「已启用「砚 · 深色」」
+- 偏好是「跟随系统」时两个 chip 都不高亮，副标题写「已启用「砚」· 深浅跟随系统」
 
-**装上默认就是开启、浅色。** 选择记在 localStorage，重启后保持。
-关闭时用的是安装前 DSH 的偏好（浅色/深色/跟随系统），不会强推任何一种。
+**装上默认就是开启。** 深浅不由砚自己记：DSH 的设置文档只持久化 `light` / `dark` / `system`，
+所以砚把配色做成 token 层跟着这个偏好走，**选一次深色，之后每次启动都是深色**。
+
+为什么不能像普通主题那样注册 `inkstone-dark` 再 `setTheme()`：第三方 id 不写进设置文档，
+`ThemeRuntime.adopt()` 每次拿到持久化快照都会把 preference 改回 `light`/`dark`/`system`，
+启动时切过去的 id 几百毫秒后就被宿主覆盖回来——这就是「每次进来都要重新选」的根因。
 
 ## 装好之后怎么确认
 
@@ -192,11 +244,20 @@ factory: () => { const React = require("react"); ... }
 getComputedStyle(document.body).getPropertyValue('--dsw-alias-bg-base')
 ```
 
-- `#faf7f2`（浅色）/ `#191513`（深色）→ 生效
+- `#faf7f2`（浅色）/ `#23201c`（深色）→ 生效
 - `#fff` / `#151517` → 未生效，先查是不是装错了 profile
 
 再查链接色 `--dsw-alias-link`：生效时是 `#c41002`（浅）/ `#db6150`（深），
 未生效时是基线的 `#4176e6` / `#7aaaff`。
+
+玻璃只在深色下出现，查输入框：
+
+```js
+getComputedStyle(document.querySelector('[data-composer-card]')).backdropFilter
+```
+
+- 深色：`blur(26px) saturate(1.6) brightness(0.94)` → 玻璃生效
+- 浅色或未启用砚：`none`
 
 
 ## 开发
@@ -204,7 +265,8 @@ getComputedStyle(document.body).getPropertyValue('--dsw-alias-bg-base')
 ```sh
 node tools/palette.mjs        # 读基线 → 求解配色 → 跑门禁 → 写 tokens.json / report.json
 node tools/build-client.mjs   # tokens.json → lib/client.js
-node tools/check.mjs          # 14 项产物检查
+node tools/check.mjs          # 30 项产物检查
+node tools/smoke.mjs          # 23 项运行时冒烟（vm 里加载真实 bundle）
 node tools/preview.mjs        # → preview.html
 node tools/render-preview.mjs # → preview.png（Node 自绘 PNG，不经过浏览器）
 npm run verify                # 以上全部
@@ -212,6 +274,21 @@ npm run verify                # 以上全部
 
 **没有打包步骤。** 纯配色主题用不到 React / JSX / 样式表导入，所以 `lib/client.js`
 由 `tools/build-client.mjs` 拼装生成，签入仓库。
+
+**改完 `lib/client.js` 要不要重启，取决于构建。** DSH 有 `client-hmr`：它每 500ms
+轮询插件 bundle 的 mtime，一变就通过 `/plugins/events` 推 `rebuilt` 帧，浏览器侧调
+`entries.reload(id, rev)` 把这个模块重跑一遍。但**在这台桌面构建上实测没有发生**
+（控制台诊断显示样式仍没注入），所以现在得**重启客户端**才拿得到新 bundle。
+宿主半侧（`lib/index.js`）的改动任何情况下都要重启；装/卸插件同理（层栈在启动时读一次）。
+
+判断到底是"没加载"还是"太淡"，一行就够：
+
+```js
+[...document.querySelectorAll('style')].some(s => s.textContent?.includes('liquid glass'))
+```
+
+`false` = bundle 还是旧的；`true` 但看不出效果 = 材质需要调强，改 `tools/glass.mjs`
+里的数字再重新构建。
 
 ### 重新调色
 
@@ -222,7 +299,7 @@ npm run verify                # 以上全部
 | `FAMILIES` | 各色族的目标 OKLCH 色相、彩度系数、`minChroma`、`lightnessCap` |
 | `PRESERVED_FAMILIES` | 保持基线原样的色族（绿/琥珀/红：改状态色是改含义，不是主题化） |
 | `TARGETS` | 每个种子要解的对比度比值，可带 `maxLightness`（按模式的明度上限） |
-| `SURFACE` | 阅读表面（浅 `#faf7f2` / 深 `#191513`），也是遮罩色 |
+| `SURFACE` | 阅读表面（浅 `#faf7f2` / 深 `#23201c`），也是遮罩色 |
 | `OVERLAY` | 背景遮罩强度（浅 0.82 / 深 0.88） |
 | `PAIRS` | 门禁配对与下限 |
 | `TYPOGRAPHY` / `RADIUS` | 字体栈与圆角 |
@@ -239,7 +316,7 @@ npm run verify                # 以上全部
 
 ### `check.mjs` 查什么
 
-20 项，只证明磁盘上的产物互相自洽、且与已安装的 DSH 一致，不复算颜色：
+30 项，只证明磁盘上的产物互相自洽、且与已安装的 DSH 一致，只有玻璃那组会重算颜色：
 
 **产物自洽**
 
@@ -253,37 +330,60 @@ npm run verify                # 以上全部
 
 6. 每个 token 在已安装的 DSH 里仍然存在（升级后第一时间发现）；
 7. 背景层依赖的四个 DOM 属性仍在对话包里；
-8. 被清空背景的容器默认仍是 `var(--dsw-alias-bg-base)`。
+8. 被清空背景的容器默认仍是 `var(--dsw-alias-bg-base)`；
+9. 玻璃依赖的 `data-composer-card`、`--dsw-specific-menu`、`--dsw-menu-backdrop-filter`
+   仍被对话包消费。
 
 **运行时契约**（这几条都是踩过坑补上的）
 
-9. `factory` 接收 `require`（否则整页崩）；
-10. `apply` 的每一步都隔离（失败不波及宿主）；
-11. 初始选择等主题真正注册后再切换（否则默认静默失效）；
-12. 客户端 inject 了 `theme` 与 `slots`、注册两主题 + 设置行、写 localStorage、能还原原主题、
-    **不用 overrideTokens 强推**；
-13. 宿主半侧仍是无副作用的空 `apply()`。
+10. `factory` 接收 `require`（否则整页崩）；
+11. `apply` 的每一步都隔离（失败不波及宿主）；
+12. 配色是 `overrideTokens` 的一层、不是第三方主题 id（第三方 id 是会话级的，重启会被 adopt 覆盖）；
+13. 客户端 inject 了 `theme` 与 `slots`，装 token 层 + 设置行，记开关，写内置深浅偏好，迁移旧 key，
+    chip 跟随实时偏好，样式表跟随开关；
+14. 宿主半侧仍是无副作用的空 `apply()`。
 
 **可读性与动效**
 
-14. 38 组会话配对全 PASS，且报告来自当前基线；
-15. 选区色对文字的对比度过 4.5 下限；
-16. 动效全部置于 `prefers-reduced-motion` 守卫内；
-17. 样式层可回收。
+15. 38 组会话配对全 PASS，且报告来自当前基线；
+16. 选区色对文字的对比度过 4.5 下限；
+17. 动效全部置于 `prefers-reduced-motion` 守卫内；
+18. 样式层可回收。
+
+**液态玻璃**
+
+19. `lib/client.js` 里的玻璃样式与 `tools/glass.mjs` 生成的一致（防手改漂移）；
+20. 玻璃确实拼进了那个 `<style>`；
+21. 每一条玻璃规则都在 `body[data-ds-dark-theme]` 下（不会漏到浅色）；
+22. 有 `@supports` 与 `prefers-reduced-transparency` 两条退路；
+23. 玻璃填充叠在**纯白**上后，正文仍 ≥7:1、次级文字仍 ≥4.5:1；
+24. 玻璃依赖的输入框钩子（`data-composer-card` / `data-composer-seat` /
+    `data-conversation-region`）仍被对话包消费；
+25. 玻璃样式里没有出现菜单材质变量（不重写 DSH 自己的雾面菜单）。
+
+（其余为上面的产物/契约检查，合计 30 项。）
+
+`node tools/smoke.mjs` 另跑 23 项运行时断言，`check.mjs` 看不到的那类问题归它：它用 Node 的
+`vm` 加载**真实的** `lib/client.js`，配一份会像 `ThemeRuntime` 一样 `adopt()` 持久化偏好的桩，
+验证 token 层装上、adopt 之后不被撤掉、开关真的能撤层和停样式表、点「深色」写的是内置偏好、
+旧 key 迁移一次，以及卸载后 `<style>` 和层都收回。
 
 ## 与基线的差异
 
 | 项 | 结论 |
 |---|---|
-| 主题注册 id | 用 `register()` 注册 `inkstone-light` / `inkstone-dark`。第三方 id 不写入设置文件，所以选择存在 localStorage；每次启动按存储值恢复 |
+| 主题选择 | **不注册第三方 id**，改成一层 `overrideTokens`。第三方 id 是会话级的，`ThemeRuntime.adopt()` 会用持久化偏好覆盖它；砚的深浅沿用 DSH 的 `light`/`dark`/`system`，所以选择能被设置文档保存，重启即恢复 |
+| 液态玻璃 | 暗色新增一层材质，**不新增 token**、不改配对；为让消息从玻璃背后滚过，撤掉输入框座位那层不透明渐隐。浅色完全不变 |
 | 状态色阶 | 完全保留基线。状态胶囊底色（`*-tertiary`）跟着色阶走，只换中性阶与强调色 |
 | 代码块 | 9 个 Shiki token 对**改色后的代码块**重解对比度，不是复制基线的明度 |
 | 字体 | 只覆盖 `--dsh-font-*` 默认栈，不替换成具体字体，机器缺字体时回落到系统栈 |
 
 ## 已知限制
 
+- **「跟随系统」不在砚这一行里。** 它和上方「外观」行是同一个偏好，去那里选更直接；
+  砚这行只保留浅色/深色两个 chip，选中状态跟着偏好实时同步。
 - **背景层是唯一的脆弱点。** 它依赖 DSH 的 DOM 属性；属性一改，图上不来（会 warn），但配色不受影响。
-  `check.mjs` 第 11/12 项就是为了在升级后立刻告诉你。
+  `check.mjs` 第 7、9 项就是为了在升级后立刻告诉你。
 - **背景图需要手动设置一个全局变量。** 没有设置界面——要的话得先确认 DSH 的设置项 API 再说。
 - **`--dsw-alias-label-primary` 只有一组值**，深色下要同时读在页面表面（17.8:1）和菜单分组标题、
   提示框这类近白/近黑浮层上。浮层上的配对已经在门禁里覆盖并通过；这不是拆分 token 的问题，

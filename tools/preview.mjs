@@ -13,6 +13,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { contrast, parseColor } from './color.mjs'
+import { GLASS, glassCss } from './glass.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
@@ -36,6 +37,19 @@ function cssBlock(mode) {
   const lines = Object.entries(tokens).map(([name, pair]) => `  ${name}: ${pair[mode]};`)
   return `[data-mode="${mode}"] {\n  color-scheme: ${mode};\n${lines.join('\n')}\n}`
 }
+
+/**
+ * The shipped glass material, re-scoped from `<body>` to the preview's dark
+ * card. Same text that ships in `lib/client.js` — so a wrong number here would
+ * show up in the preview, not only in the app.
+ */
+const glassPreview = glassCss().replaceAll('body[data-ds-dark-theme]', '.mode[data-mode="dark"]')
+
+/** What the composer's text clears once the pane is translucent over white. */
+const glassWorstCase = (() => {
+  const [r, g, b] = parseColor(colour('--dsw-specific-input-major', 'dark'))
+  return contrast(parseColor(colour('--dsw-alias-label-primary', 'dark')), [r, g, b, GLASS.fill], parseColor('#ffffff'))
+})()
 
 const ratioRows = report.pairs
   .map(
@@ -191,6 +205,22 @@ th { color: var(--dsw-alias-label-tertiary); font-weight: 600; }
 input[type=range] { width: 220px; vertical-align: middle; }
 .toolbar { display: flex; gap: 16px; align-items: center; margin-bottom: 10px; font-size: 12px; color: var(--dsw-alias-label-secondary); flex-wrap: wrap; }
 .foot { max-width: 1180px; margin: 0 auto; padding: 0 28px 40px; font-size: 12px; color: var(--dsw-alias-label-tertiary); }
+
+/* Liquid-glass demo: real conversation text underneath, the shipped material on
+   top. The underlay is what gives backdrop-filter something to chew on. */
+.glass-demo { position: relative; height: 252px; border-radius: var(--dsw-radius-md); overflow: hidden; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-base); margin-top: 12px; }
+.glass-under { position: absolute; inset: 0; padding: 14px 18px; font-size: 13px; line-height: 24px; color: var(--dsw-alias-label-tertiary); }
+.glass-under p { margin: 0; }
+.glass-demo .composer { position: absolute; left: 14px; right: 14px; bottom: 12px; margin: 0; border: 0; border-radius: var(--dsw-radius-panel); }
+.glass-demo .menu {
+  position: absolute; top: 14px; right: 14px; width: 168px; border-radius: var(--dsw-radius-md); overflow: hidden;
+  /* DSH ships this material itself (translucent fill + 40px blur); the preview
+     only carries theme tokens, so it restates the same idea with theme colours. */
+  background: color-mix(in srgb, var(--dsw-alias-bg-layer-2) 72%, transparent);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+}
+${glassPreview}
 </style>
 </head>
 <body>
@@ -298,6 +328,26 @@ input[type=range] { width: 220px; vertical-align: middle; }
     </div>
 
     <div class="composer">输入消息…</div>
+
+    <h3>液态玻璃 · 深色</h3>
+    <div class="caption">填充 ${Math.round(GLASS.fill * 100)}% + ${GLASS.blurPx}px 模糊 + 顶部高光；正文即使叠在纯白背景上也还有 ${glassWorstCase.toFixed(1)}:1。菜单的雾面是 DSH 自带的，主题没有改它。</div>
+    <div class="glass-demo">
+      <div class="glass-under" aria-hidden="true">
+        <p>… 上一轮：38 组配对已经全过门禁 …</p>
+        <p>… 再往下是代码块和引用块 …</p>
+        <p>… 面板浮在会话上面，文字从背后滚过 …</p>
+        <p>… 顶部 1px 白色描边是光源的方向 …</p>
+        <p>… 底部的暗边把它压回纸面 …</p>
+        <p>… 菜单和输入框用的是同一套数字 …</p>
+        <p>… 系统开启「降低透明度」时整块撤掉 …</p>
+      </div>
+      <div class="composer" data-composer-card>输入消息…</div>
+      <div class="menu" role="menu">
+        <div class="head">主题</div>
+        <div class="item">砚 · 浅色</div>
+        <div class="item">砚 · 深色</div>
+      </div>
+    </div>
   </main>
 
   <aside class="aside panel">

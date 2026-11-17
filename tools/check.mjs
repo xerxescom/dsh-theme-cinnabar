@@ -21,6 +21,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readBaseline, readClientBundle } from './baseline.mjs'
 import { contrast, isColor, parseColor, toOklch } from './color.mjs'
+import { GLASS, GLASS_WORST_CASE, glassCss } from './glass.mjs'
 import { gate, generate } from './palette.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -237,6 +238,97 @@ check(
   steps.map((d) => d.toFixed(3)).join(" / ") + " (min " + minStep + ")",
 )
 
+// --------------------------------------------------------------------------
+// 5c. Liquid glass
+// --------------------------------------------------------------------------
+//
+// The glass layer is the only place this theme paints translucency, so it gets
+// the strictest checks in the file: it must stay dark-only, it must ship in the
+// bundle exactly as `tools/glass.mjs` generates it, and its panes must clear the
+// text floors *over a pure-white backdrop* — the bound, not the usual case.
+
+const glassSource = glassCss()
+const embeddedGlass = /const GLASS_CSS = `([\s\S]*?)`;/.exec(clientSource)?.[1]
+const normalise = (css) => css.replace(/\s+/g, ' ').trim()
+check(
+  'glass layer matches its generator',
+  embeddedGlass !== undefined && normalise(embeddedGlass) === normalise(glassSource),
+  embeddedGlass === undefined
+    ? 'GLASS_CSS template literal not found in lib/client.js'
+    : embeddedGlass !== undefined && normalise(embeddedGlass) === normalise(glassSource)
+      ? `${glassSource.length} bytes of material`
+      : 'stale: run node tools/build-client.mjs',
+)
+
+const glassWired = /MOTION_VARIABLES \+ MOTION_CSS \+ GLASS_CSS/.test(clientSource)
+check(
+  'glass ships in the injected stylesheet',
+  glassWired,
+  glassWired ? 'one <style>, same cleanup path' : 'GLASS_CSS is defined but never injected',
+)
+
+const glassRules = [...glassSource.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)]
+  .map((match) => match[1].trim())
+  .filter((selector) => selector.length > 0 && !selector.startsWith('@'))
+const unscopedGlass = glassRules.filter((selector) => !selector.includes('data-ds-dark-theme'))
+check(
+  'glass layer is dark-scoped',
+  unscopedGlass.length === 0,
+  unscopedGlass.length === 0
+    ? `${glassRules.length} rules, all under body[data-ds-dark-theme]`
+    : `unscoped: ${unscopedGlass.slice(0, 2).join(' | ')}`,
+)
+
+const glassFallbacks = /@supports not \(\(backdrop-filter/.test(glassSource) && /prefers-reduced-transparency: reduce/.test(glassSource)
+check(
+  'glass degrades to an opaque pane',
+  glassFallbacks,
+  glassFallbacks ? '@supports fallback + prefers-reduced-transparency' : 'a pane with no blur support must fall back to the solid token',
+)
+
+const worstBackdrop = parseColor(GLASS_WORST_CASE.backdrop)
+const glassPanes = [
+  ['composer', '--dsw-specific-input-major', GLASS.fill],
+]
+const glassRows = []
+for (const [pane, fillToken, alpha] of glassPanes) {
+  const fill = tokens[fillToken]?.dark
+  if (fill === undefined) continue
+  const [r, g, b] = parseColor(fill)
+  const glassFill = [r, g, b, alpha]
+  for (const [fgToken, floor] of Object.entries(GLASS_WORST_CASE.floors)) {
+    const fg = tokens[fgToken]?.dark
+    if (fg === undefined) continue
+    glassRows.push({ pane, fg: fgToken, floor, ratio: contrast(parseColor(fg), glassFill, worstBackdrop) })
+  }
+}
+const glassBroken = glassRows.filter((row) => row.ratio < row.floor)
+check(
+  'glass panes stay readable over a white backdrop',
+  glassBroken.length === 0 && glassRows.length === glassPanes.length * Object.keys(GLASS_WORST_CASE.floors).length,
+  glassBroken.length === 0
+    ? glassRows.map((row) => `${row.pane}/${row.fg.replace('--dsw-alias-', '')} ${row.ratio.toFixed(1)}:1`).join(', ')
+    : glassBroken.map((row) => `${row.pane}/${row.fg} ${row.ratio.toFixed(2)} < ${row.floor}`).join(', '),
+)
+
+// The composer hook and the seat scrim are the DOM contracts the glass rides
+// on. Menus are deliberately absent: DSH ships its own frosted menu material.
+const conversationSource = readClientBundle(baseline.pkg.dir, 'dsh-client-ui-conversation')
+const glassHooks = ['data-composer-card', 'data-composer-seat', 'data-conversation-region']
+const missingHooks = glassHooks.filter((hook) => conversationSource === null || !conversationSource.includes(hook))
+check(
+  'glass DOM contract intact',
+  missingHooks.length === 0,
+  missingHooks.length === 0 ? glassHooks.join(', ') : `gone upstream: ${missingHooks.join(', ')}`,
+)
+
+const reimplementsMenus = /--dsw-menu-surface-fill|--dsw-menu-backdrop-filter|--dsw-specific-menu/.test(glassSource)
+check(
+  'glass leaves the menu material to DSH',
+  !reimplementsMenus,
+  reimplementsMenus ? 'glass must not restate the design system\'s menu material' : 'composer only; menus keep the host material',
+)
+
 const factorySignature = /factory:\s*\(\s*require\s*\)\s*=>/.test(clientSource)
 check(
   "factory accepts require",
@@ -244,15 +336,23 @@ check(
   factorySignature ? "factory(require)" : "factory must take require as its parameter, not a bare () =>",
 )
 
-// The registry defers its body through ctx.effect, so a synchronous setTheme()
-// right after registering throws "not registered" and the default silently
-// loses. The initial choice must wait for the theme to appear in the snapshot.
+// The theme service persists only light/dark/system: ThemeRuntime.adopt()
+// restores the stored preference whenever the settings document lands, so a
+// third-party theme id selected at boot is reverted. The palette must therefore
+// be a token layer over the built-in preference, never a registered theme.
 
-const waitsForRegistration = /function applyInitialChoice\(/.test(clientSource) && /snapshot\?\.themes/.test(clientSource)
+const paletteIsLayer = /ctx\.theme\.overrideTokens\(SOURCE, PALETTE\)/.test(clientSource) && /for \(const name of Object\.keys\(PALETTE_LIGHT\)\)/.test(clientSource)
 check(
-  "initial choice waits for registration",
-  waitsForRegistration,
-  waitsForRegistration ? "retries until the id is in snapshot.themes" : "applyInitialChoice must poll snapshot.themes before calling setTheme",
+  "palette is a layer, not a theme id",
+  paletteIsLayer,
+  paletteIsLayer ? "{light,dark} pairs folded over the active built-in theme" : "applyPalette must call overrideTokens(SOURCE, PALETTE) with both schemes",
+)
+
+const noThirdPartyThemeId = !/ctx\.theme\.register\(/.test(clientSource)
+check(
+  "no third-party theme id to lose on restart",
+  noThirdPartyThemeId,
+  noThirdPartyThemeId ? "the scheme is DSH's own persisted preference" : "register() ids are session-scoped; adopt() reverts them on every launch",
 )
 
 const applyGuarded = /function step\(label, fn\)/.test(clientSource) && /step\("register settings row"/.test(clientSource)
@@ -264,11 +364,13 @@ check(
 
 const wiring = [
   ['injects theme + slots', /const inject = \["theme", "slots"\]/.test(clientSource)],
-  ['registers two themes', /ctx\.theme\.register\(/.test(clientSource) && /id: LIGHT_ID/.test(clientSource) && /id: DARK_ID/.test(clientSource)],
+  ['installs one token layer', /ctx\.theme\.overrideTokens\(SOURCE, PALETTE\)/.test(clientSource)],
   ['registers a settings row', /ctx\.slots\.register\(/.test(clientSource)],
-  ['persists the choice', /localStorage\??\.setItem\(STORAGE_KEY/.test(clientSource)],
-  ['restores the built-in theme', /ORIGINAL_PREFERENCE/.test(clientSource)],
-  ['does not force overrideTokens', !/overrideTokens\(/.test(clientSource)],
+  ['remembers the switch', /localStorage\??\.setItem\(STORAGE_KEY/.test(clientSource)],
+  ['writes the built-in scheme', /function chooseScheme\(ctx, id\)/.test(clientSource) && /ctx\.theme\.setTheme\(id\)/.test(clientSource)],
+  ['migrates the pre-0.4 key', /LEGACY_KEY/.test(clientSource) && /removeItem\(LEGACY_KEY\)/.test(clientSource)],
+  ['chips follow the live preference', /readPreference\(ctx\)/.test(clientSource) && /ctx\.on\("theme\/change", notify\)/.test(clientSource)],
+  ['style layer follows the switch', /style\.disabled = !readEnabled\(\)/.test(clientSource) && /function setStyleEnabled/.test(clientSource)],
   ['background layer is retractable', /style\.remove\(\)/.test(clientSource)],
   ['style layer is present', /MOTION_CSS/.test(clientSource)],
 ]
