@@ -52,6 +52,14 @@ body [data-conversation-scroll] {
    the client half for the switch window — never always-on, because that would
    replace the host's own opacity/transform transitions. */
 @media (prefers-reduced-motion: no-preference) {
+  /* The UA crossfade leaves both snapshots translucent at the midpoint, so
+     whatever sits behind the overlay shows through. Painting the overlay with
+     the incoming surface keeps the midpoint a blend of the two themes instead
+     of a flash of the canvas/colour-scheme. */
+  ::view-transition {
+    background-color: var(--cinnabar-vt-bg, Canvas);
+  }
+
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation-duration: 240ms;
