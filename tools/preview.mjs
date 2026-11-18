@@ -14,6 +14,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { contrast, parseColor } from './color.mjs'
 import { GLASS, GLASS_LIGHT, glassCss } from './glass.mjs'
+import { bootEntranceCss } from './motion.mjs'
+import { WHALE_PATH, WHALE_VIEWBOX } from './whale.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
@@ -192,21 +194,17 @@ th { color: var(--dsw-alias-label-tertiary); font-weight: 600; }
   font-size: 13px;
   line-height: 1.7;
 }
-.motion-menu {
-  align-self: flex-start;
-  padding: 8px 14px;
+.motion-boot-note {
+  padding: 14px 16px;
   border-radius: var(--dsw-radius-sm);
-  border: 1px solid var(--dsw-alias-border-l3);
-  background: var(--dsw-specific-menu);
-  color: var(--dsw-alias-label-primary);
+  border: 1px dashed var(--dsw-alias-border-l3);
+  color: var(--dsw-alias-label-secondary);
   font-size: 12px;
-  box-shadow: var(--dsw-elevation-panel);
+  line-height: 1.7;
 }
 @keyframes cinnabar-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-@keyframes cinnabar-pop { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: no-preference) {
   .motion-note.playing { animation: cinnabar-rise 220ms cubic-bezier(.22,.61,.36,1) both; }
-  .motion-menu.playing { animation: cinnabar-pop 140ms cubic-bezier(.22,.61,.36,1) both; transform-origin: top center; }
 }
 
 .bg-demo { position: relative; height: 260px; border-radius: var(--dsw-radius-md); overflow: hidden; border: 1px solid var(--dsw-alias-border-l2); }
@@ -232,6 +230,10 @@ input[type=range] { width: 220px; vertical-align: middle; }
   -webkit-backdrop-filter: blur(20px) saturate(150%);
 }
 ${glassPreview}
+
+/* The first-load curtain: the exact block the plugin ships, so the preview
+   cannot drift from lib/client.js. */
+${bootEntranceCss()}
 </style>
 </head>
 <body>
@@ -396,12 +398,15 @@ ${glassPreview}
 <section class="foot">
   <h2 style="margin-top:26px">动效与质感</h2>
   <div class="toolbar">
-    <span class="caption">选中下面任意文字看选区色；按 Tab 看焦点环；点「重播」看消息上浮与面板弹出。</span>
+    <span class="caption">选中下面任意文字看选区色；按 Tab 看焦点环；点「重播」看消息上浮。</span>
     <button id="replayMotion" type="button" style="font:inherit;font-size:12px;padding:4px 12px;border-radius:999px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-primary);cursor:pointer">重播</button>
   </div>
   <div class="motion-demo" id="motionDemo">
     <div class="motion-note">这句话可以拖选：选区用的是朱砂暖调，不是浏览器默认蓝。深色卡片里另有一份对应取值。</div>
-    <div class="motion-menu">菜单从锚点微微放大出现（cinnabar-pop）</div>
+    <div class="motion-boot-note" style="display:flex;align-items:center;gap:16px">
+      <span style="flex:1">进入动画：铺一层纸色（深色下是墨色），官方鲸鱼标记从模糊里浮出，随后整层连同墨晕和鲸鱼一起散开，落进主界面。只在每次打开客户端时播一次；系统开了「减少动效」时完全不播，点击也不拦。</span>
+      <button id="replayBoot" type="button" style="font:inherit;font-size:12px;padding:4px 12px;border-radius:999px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);color:var(--dsw-alias-label-primary);cursor:pointer;white-space:nowrap">播放入场动画</button>
+    </div>
   </div>
 
   <h2 style="margin-top:26px">背景图 · 遮罩预览</h2>
@@ -472,13 +477,38 @@ ${glassPreview}
   // 重播动效：移除 class 后强制回流，再重新加上，让动画从头播。
   const replay = document.getElementById('replayMotion')
   const note = document.querySelector('.motion-note')
-  const menu = document.querySelector('.motion-menu')
   replay.addEventListener('click', () => {
-    for (const el of [note, menu]) {
-      el.classList.remove('playing')
-      void el.offsetWidth
-      el.classList.add('playing')
-    }
+    note.classList.remove('playing')
+    void note.offsetWidth
+    note.classList.add('playing')
+  })
+
+  // 进入动画：和插件用的是同一段 CSS（见 tools/motion.mjs 的 bootEntranceCss）。
+  // 遮罩挂在浅色卡片里，是为了继承那张卡片的 token；position:fixed 仍铺满视口。
+  const SVG_NS = 'http://www.w3.org/2000/svg'
+  const WHALE_VIEWBOX = ${JSON.stringify(WHALE_VIEWBOX)}
+  const WHALE_PATH = ${JSON.stringify(WHALE_PATH)}
+  const bootButton = document.getElementById('replayBoot')
+  const bootHost = document.querySelector('.mode[data-mode="light"]')
+  bootButton.addEventListener('click', () => {
+    for (const node of document.querySelectorAll('.cinnabar-boot, .cinnabar-boot-mark')) node.remove()
+    const veil = document.createElement('div')
+    veil.className = 'cinnabar-boot'
+    const mark = document.createElement('div')
+    mark.className = 'cinnabar-boot-mark'
+    const svg = document.createElementNS(SVG_NS, 'svg')
+    svg.setAttribute('viewBox', WHALE_VIEWBOX)
+    const path = document.createElementNS(SVG_NS, 'path')
+    path.setAttribute('d', WHALE_PATH)
+    path.setAttribute('fill', 'currentColor')
+    svg.appendChild(path)
+    mark.appendChild(svg)
+    // 减少动效时 CSS 不会播，兜底计时器把两层收走，否则预览会一直被盖住。
+    const drop = () => { veil.remove(); mark.remove() }
+    veil.addEventListener('animationend', (event) => { if (event.target === veil) drop() })
+    setTimeout(drop, 1600)
+    bootHost.appendChild(veil)
+    bootHost.appendChild(mark)
   })
 </script>
 </body>

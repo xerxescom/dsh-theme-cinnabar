@@ -47,10 +47,45 @@ const verify = (name, ok, detail) => {
 // Stubs
 // --------------------------------------------------------------------------
 
+const createNode = (tag) => {
+  const node = {
+    tagName: String(tag).toUpperCase(),
+    dataset: {},
+    textContent: '',
+    disabled: false,
+    removed: false,
+    className: '',
+    children: [],
+    attributes: new Map(),
+    listeners: [],
+    setAttribute(name, value) {
+      this.attributes.set(name, value)
+    },
+    getAttribute(name) {
+      return this.attributes.get(name) ?? null
+    },
+    appendChild(child) {
+      this.children.push(child)
+      child.parent = node
+      return child
+    },
+    addEventListener(type, fn) {
+      this.listeners.push({ type, fn })
+    },
+    remove() {
+      this.removed = true
+      const parent = this.parent
+      if (parent) parent.children = parent.children.filter((child) => child !== this)
+    },
+  }
+  return node
+}
+
 const createDocument = () => {
   const head = []
   const bodyStyle = new Map()
   const body = {
+    children: [],
     attributes: new Map(),
     style: {
       setProperty: (name, value) => bodyStyle.set(name, value),
@@ -63,22 +98,20 @@ const createDocument = () => {
     removeAttribute(name) {
       this.attributes.delete(name)
     },
+    appendChild: (node) => {
+      body.children.push(node)
+      node.parent = body
+      return node
+    },
   }
   return {
     head: { appendChild: (node) => head.push(node) },
     body,
     documentElement: { offsetHeight: 0 },
     styles: head,
-    createElement: (tag) => ({
-      tagName: String(tag).toUpperCase(),
-      dataset: {},
-      textContent: '',
-      disabled: false,
-      removed: false,
-      remove() {
-        this.removed = true
-      },
-    }),
+    createElement: (tag) => createNode(tag),
+    createElementNS: (_ns, tag) => createNode(tag),
+    querySelector: () => null,
   }
 }
 
@@ -174,7 +207,7 @@ const createContext = (theme) => {
   }
 }
 
-const mount = ({ storage = {}, theme = createTheme(), viewTransition } = {}) => {
+const mount = ({ storage = {}, theme = createTheme(), viewTransition, reducedMotion = false } = {}) => {
   const document = createDocument()
   if (viewTransition) document.startViewTransition = viewTransition
   const setThemeBefore = Object.getOwnPropertyDescriptor(theme, 'setTheme')
@@ -184,7 +217,8 @@ const mount = ({ storage = {}, theme = createTheme(), viewTransition } = {}) => 
     setItem: (key, value) => map.set(key, String(value)),
     removeItem: (key) => map.delete(key),
   }
-  const sandbox = { console, document, localStorage, queueMicrotask, setTimeout, clearTimeout }
+  const matchMedia = (query) => ({ matches: reducedMotion && /prefers-reduced-motion:\s*reduce/.test(query) })
+  const sandbox = { console, document, localStorage, queueMicrotask, setTimeout, clearTimeout, matchMedia }
   sandbox.window = sandbox
   sandbox.globalThis = sandbox
   let entry = null
@@ -250,6 +284,29 @@ verify(
   `${fresh.document.styles.length} style(s), disabled=${freshStyle?.disabled}`,
 )
 
+const veils = (mounted) => mounted.document.body.children.filter((node) => node.className === 'cinnabar-boot')
+const marks = (mounted) => mounted.document.body.children.filter((node) => node.className === 'cinnabar-boot-mark')
+const freshVeil = veils(fresh)[0]
+verify(
+  'plays the first-load curtain',
+  veils(fresh).length === 1 && marks(fresh).length === 1,
+  `${veils(fresh).length} veil(s), ${marks(fresh).length} mark layer(s)`,
+)
+const freshSvg = marks(fresh)[0]?.children[0]
+const freshPath = freshSvg?.children[0]
+verify(
+  'curtain carries the official whale mark',
+  freshVeil?.attributes.get('aria-hidden') === 'true'
+    && freshSvg?.tagName === 'SVG'
+    && typeof freshSvg?.attributes.get('viewBox') === 'string'
+    && freshPath?.tagName === 'PATH'
+    && String(freshPath?.attributes.get('d')).startsWith('M168.384')
+    && freshPath?.attributes.get('fill') === 'currentColor',
+  freshSvg === undefined
+    ? 'no svg'
+    : `viewBox=${freshSvg.attributes.get('viewBox')}, d=${String(freshPath?.attributes.get('d')).slice(0, 12)}…`,
+)
+
 // --------------------------------------------------------------------------
 // 2. The settings document lands after the plugin did
 // --------------------------------------------------------------------------
@@ -277,6 +334,57 @@ verify('switch off leaves the DSH preference alone', fresh.theme.preference === 
 press(fresh, (node) => node.props?.role === 'switch')
 verify('switch on restores the layer', fresh.theme.layers.size === 1, `${fresh.theme.layers.size} layer(s)`)
 verify('switch on re-enables the stylesheet', freshStyle.disabled === false, `disabled=${freshStyle.disabled}`)
+
+// --------------------------------------------------------------------------
+// 3b. The first-load curtain
+// --------------------------------------------------------------------------
+
+const endVeil = (mounted) => {
+  const veil = veils(mounted)[0]
+  if (veil === undefined) return
+  const listener = veil.listeners.find((entry) => entry.type === 'animationend')
+  if (listener !== undefined) listener.fn({ target: veil })
+}
+
+const freshMark = marks(fresh)[0]
+endVeil(fresh)
+verify(
+  'curtain removes itself on animationend',
+  veils(fresh).length === 0 && marks(fresh).length === 0 && freshVeil.removed === true && freshMark.removed === true,
+  `${veils(fresh).length} veil(s), ${marks(fresh).length} mark(s) left`,
+)
+
+const curtainOff = mount({ storage: { 'dsh-theme-cinnabar:motion': 'false' } })
+verify(
+  'curtain switch off skips the veil',
+  veils(curtainOff).length === 0 && marks(curtainOff).length === 0 && curtainOff.theme.layers.size === 1,
+  `${veils(curtainOff).length} veil(s), ${curtainOff.theme.layers.size} layer(s)`,
+)
+verify(
+  'curtain switch off still ships the stylesheet',
+  curtainOff.document.styles[0].textContent.includes('cinnabar-boot'),
+  'boot CSS present, just not mounted',
+)
+
+const calm = mount({ reducedMotion: true })
+verify(
+  'reduced motion skips the curtain',
+  veils(calm).length === 0 && marks(calm).length === 0,
+  `${veils(calm).length} veil(s), ${marks(calm).length} mark(s)`,
+)
+
+press(curtainOff, (node) => node.props?.['aria-label'] === '启用启动动画')
+verify(
+  'turning the curtain on previews it once',
+  veils(curtainOff).length === 1 && marks(curtainOff).length === 1 && curtainOff.localStorage.getItem('dsh-theme-cinnabar:motion') === 'true',
+  `${veils(curtainOff).length} veil(s), motion=${curtainOff.localStorage.getItem('dsh-theme-cinnabar:motion')}`,
+)
+press(curtainOff, (node) => node.props?.['aria-label'] === '启用启动动画')
+verify(
+  'turning the curtain off is remembered',
+  curtainOff.localStorage.getItem('dsh-theme-cinnabar:motion') === 'false',
+  `motion=${curtainOff.localStorage.getItem('dsh-theme-cinnabar:motion')}`,
+)
 
 // --------------------------------------------------------------------------
 // 4. A chip writes the persisted preference
@@ -338,6 +446,21 @@ verify(
 for (const cleanup of fresh.effects) if (typeof cleanup === 'function') cleanup()
 verify('unmount retracts the layer', fresh.theme.layers.size === 0, `${fresh.theme.layers.size} layer(s)`)
 verify('unmount removes the stylesheet', freshStyle.removed === true, `removed=${freshStyle.removed}`)
+
+const withVeil = mount()
+const withVeilVeil = veils(withVeil)[0]
+const withVeilMark = marks(withVeil)[0]
+for (const cleanup of withVeil.effects) if (typeof cleanup === 'function') cleanup()
+verify(
+  'unmount takes the curtain down',
+  withVeilVeil !== undefined
+    && withVeilMark !== undefined
+    && veils(withVeil).length === 0
+    && marks(withVeil).length === 0
+    && withVeilVeil.removed === true
+    && withVeilMark.removed === true,
+  `${veils(withVeil).length} veil(s), ${marks(withVeil).length} mark(s) left`,
+)
 const setThemeAfter = Object.getOwnPropertyDescriptor(fresh.theme, 'setTheme')
 verify('theme switch patch is removed on unmount', setThemeAfter?.value === fresh.setThemeBefore?.value, setThemeAfter === undefined ? 'no own method' : 'restored')
 verify('unmount clears the crossfade flag', fresh.document.body.attributes.has('data-dsh-theme-fade') === false, `flag=${fresh.document.body.attributes.has('data-dsh-theme-fade')}`)

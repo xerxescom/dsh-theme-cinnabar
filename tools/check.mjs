@@ -23,6 +23,7 @@ import { readBaseline, readClientBundle } from './baseline.mjs'
 import { contrast, isColor, parseColor, toOklch } from './color.mjs'
 import { GLASS, GLASS_LIGHT, GLASS_WORST_CASE, GLASS_WORST_CASE_LIGHT, glassCss } from './glass.mjs'
 import { gate, generate } from './palette.mjs'
+import { WHALE_PATH } from './whale.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
@@ -204,6 +205,66 @@ check(
   "motion respects reduced-motion",
   reducedMotionGuarded,
   reducedMotionGuarded ? "animations gated on no-preference" : "animations must be wrapped in a prefers-reduced-motion guard",
+)
+
+// A finished animation that keeps filling (`both` / `forwards`) leaves the
+// element animated for its whole life. Chromium then stops treating it as a
+// backdrop, and any `backdrop-filter` on it or its material drops out silently.
+// Entrance animations must use `backwards`. The one exception is the first-load
+// curtain: it fades itself out and the client half removes it on `animationend`,
+// so it can never be a backdrop root — see the check right below.
+const fillingEntrances = [...clientSource.matchAll(/animation:\s*cinnabar-[^;]*;/g)]
+  .map((match) => match[0])
+  .filter((declaration) => /\b(?:both|forwards)\b/.test(declaration) && !/cinnabar-boot-lift/.test(declaration))
+check(
+  'entrance animations keep no fill state',
+  fillingEntrances.length === 0,
+  fillingEntrances.length === 0
+    ? 'every entrance ends with backwards (the curtain lifts then is removed)'
+    : `${fillingEntrances.join(' ')} — a filling animation disables the popover backdrop-filter`,
+)
+
+// ---- first-load curtain ----------------------------------------------------
+// It paints over an already-drawn shell, so the failure modes are specific:
+// it must not outlive its animation (a stuck veil hides the whole app), it must
+// honour both switches and reduced motion, and it must not replay on a theme
+// switch. All four are asserted here, and the runtime behaviour in smoke.mjs.
+const embeddedWhale = /const WHALE_PATH = ("(?:[^"\\]|\\.)*");/.exec(clientSource)?.[1]
+const whaleMatches = embeddedWhale !== undefined && JSON.parse(embeddedWhale) === WHALE_PATH
+const bootShips = /\.cinnabar-boot\s*\{/.test(clientSource) && /cinnabar-boot-mark/.test(clientSource) && whaleMatches
+const bootPlayedOnce = /let bootPlayed = false/.test(clientSource) && /if \(!force && bootPlayed\) return/.test(clientSource)
+check(
+  'first-load curtain ships',
+  bootShips && bootPlayedOnce,
+  bootShips && bootPlayedOnce
+    ? 'paper + official whale mark (path matches tools/whale.mjs) + bloom, played once'
+    : !bootShips && embeddedWhale !== undefined
+      ? 'stale whale path in lib/client.js — run node tools/build-client.mjs'
+      : 'boot styles or the whale path missing from the injected bundle',
+)
+
+const bootComesDown = /"animationend"/.test(clientSource) && /BOOT_FALLBACK_MS/.test(clientSource) && /node\.remove\?\.\(\)/.test(clientSource)
+const bootRespectsSwitches = /function readMotion\(\)/.test(clientSource) && /MOTION_KEY/.test(clientSource) && /prefers-reduced-motion: reduce/.test(clientSource)
+check(
+  'curtain cannot stick and honours the switches',
+  bootComesDown && bootRespectsSwitches,
+  bootComesDown && bootRespectsSwitches
+    ? 'animationend + timeout removal; motion switch and reduced-motion both skip it'
+    : `${bootComesDown ? '' : 'no removal path '}${bootRespectsSwitches ? '' : 'no motion switch / reduced-motion guard'}`.trim(),
+)
+
+// Menus and dialogs carry DSH's own translucent material: a 70% fill over
+// `backdrop-filter: blur(40px)`. Animating the popover root (transform or
+// opacity) makes it its own backdrop root, the blur stops applying, and the
+// workspace list / composer labels read through the open panel. The host already
+// runs a 40ms menu enter, so this layer must not animate popovers at all.
+const animatedPopovers = /(?:data-menu-surface|role='menu'|role='dialog')\s*\{[^}]*animation:/.test(clientSource)
+check(
+  'popovers keep the host material',
+  !animatedPopovers,
+  animatedPopovers
+    ? 'a menu/dialog rule animates the popover root — the frost will drop out'
+    : 'menus and dialogs carry no theme animation',
 )
 
 const styleLayerRetractable = /style\.remove\(\)/.test(clientSource) && /function applyStyleLayer/.test(clientSource)
@@ -393,6 +454,8 @@ const wiring = [
   ['background layer is retractable', /style\.remove\(\)/.test(clientSource)],
   ['style layer is present', /MOTION_CSS/.test(clientSource)],
   ['crossfades theme switches', /function withThemeFade/.test(clientSource) && /startViewTransition/.test(clientSource) && /data-dsh-vt-freeze/.test(clientSource) && /cinnabar-vt-bg/.test(clientSource) && /body\[data-dsh-theme-fade\]/.test(clientSource)],
+  ['plays the curtain after styling', /step\("boot entrance", \(\) => playBoot\(ctx\)\)/.test(clientSource)],
+  ['remembers the curtain switch', /function writeMotion\(on\)/.test(clientSource) && /writeMotion\(next\)/.test(clientSource)],
 ]
 const wiringFailures = wiring.filter(([, ok]) => !ok).map(([name]) => name)
 check('client half wiring', wiringFailures.length === 0, wiringFailures.join('; ') || wiring.length + ' checks')
