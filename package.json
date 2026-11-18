@@ -1,7 +1,7 @@
 {
   "name": "dsh-theme-cinnabar",
-  "version": "0.8.0",
-  "description": "Cinnabar (朱砂) — a readability-first theme for the DeepSeek Harness web client: one --dsw-* token layer with a contrast gate, a two-scheme liquid-glass material, an optional washed background image, and a once-per-launch whale-mark entrance.",
+  "version": "0.9.0",
+  "description": "Cinnabar (朱砂) — a readability-first theme for the DeepSeek Harness web client: one --dsw-* token layer with a contrast gate, a two-scheme liquid-glass material, an optional washed background image, a once-per-launch whale-mark entrance, and a cinnabar accent on the sidebar rows of sessions that are running.",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -38,6 +38,7 @@
       "platform": "web",
       "immediately": true,
       "inject": [
+        "@deepseek-ai/dsh-api-session-controller",
         "@deepseek-ai/dsh-client-ui-theme",
         "@deepseek-ai/dsh-client-ui-settings"
       ]

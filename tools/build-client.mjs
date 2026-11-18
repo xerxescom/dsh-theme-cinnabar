@@ -35,6 +35,7 @@ import { fileURLToPath } from 'node:url'
 import { glassCss } from './glass.mjs'
 import { motionCss, motionVariables } from './motion.mjs'
 import { WHALE_PATH as BOOT_WHALE_PATH, WHALE_VIEWBOX as BOOT_WHALE_VIEWBOX } from './whale.mjs'
+import { runningCss } from './running.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
@@ -100,6 +101,16 @@ if (GLASS_CSS.includes('`') || GLASS_CSS.includes('${')) {
   throw new Error('glass CSS must not contain a backtick or ${ — it is embedded as a template literal')
 }
 
+/**
+ * The live-session accent. Same embedding rule as the glass material: it is
+ * long, multi-line CSS, so it ships as a template literal and the guard below
+ * keeps that possible.
+ */
+const RUNNING_CSS = runningCss()
+if (RUNNING_CSS.includes('`') || RUNNING_CSS.includes('${')) {
+  throw new Error('live-session CSS must not contain a backtick or ${ — it is embedded as a template literal')
+}
+
 /** One scheme's tokens, as a flat `--name: value` map. */
 const schemeRows = (mode) =>
   Object.entries(tokens)
@@ -125,9 +136,10 @@ const source = [
   ' *',
   ` * ${pkg.description}`,
   ' *',
-  ' * Five mounts: one token layer over the built-in light/dark themes, one',
+  ' * Six mounts: one token layer over the built-in light/dark themes, one',
   ' * settings row (switch + scheme chips + entrance switch), a liquid-glass',
-  ' * material, an optional background-image layer, and a first-load curtain.',
+  ' * material, an optional background-image layer, a first-load curtain, and the',
+  ' * live-session accent the sidebar rows are marked for.',
   ' * See applyPalette for why the palette is a layer rather than a theme id.',
   ' */',
   'window.__ModuleLoader__.load({',
@@ -173,6 +185,7 @@ const source = [
   `${T}${T} * template literal keeps the CSS legible in the bundle (see tools/glass.mjs).`,
   `${T}${T} */`,
   `${T}${T}const GLASS_CSS = \`${GLASS_CSS}\`;`,
+  `${T}${T}const RUNNING_CSS = \`${RUNNING_CSS}\`;`,
   '',
   `${T}${T}/**`,
   `${T}${T} * The two palettes. Each is a full set of resolved values for ONE colour`,
@@ -218,7 +231,9 @@ const source = [
   `${T}${T}${T}"[data-chat-turn]",`,
   `${T}${T}];`,
   '',
-  `${T}${T}const inject = ["theme", "slots"];`,
+  `${T}${T}/** The row attribute the live-session stylesheet keys off; the row carries no state itself. */`,
+  `${T}${T}const LIVE_ATTRIBUTE = "data-cinnabar-live";`,
+  `${T}${T}const inject = ["theme", "slots", "sessions"];`,
   '',
   `${T}${T}/** Read the switch. A fresh install starts with 朱砂 on. */`,
   `${T}${T}function readEnabled() {`,
@@ -532,11 +547,12 @@ const source = [
   '',
   `${T}${T}function applyStyleLayer(ctx, background) {`,
   `${T}${T}${T}if (typeof document === "undefined") return;`,
-  `${T}${T}${T}// One stylesheet for the motion layer, the glass material and the optional`,
-  `${T}${T}${T}// picture: they share the same <style> so a single cleanup path retracts all.`,
+  `${T}${T}${T}// One stylesheet for the motion layer, the glass material, the live-session`,
+  `${T}${T}${T}// accent and the optional picture: they share the same <style> so a single`,
+  `${T}${T}${T}// cleanup path retracts all of them.`,
   `${T}${T}${T}const style = document.createElement("style");`,
   `${T}${T}${T}style.dataset.plugin = SOURCE;`,
-  `${T}${T}${T}style.textContent = MOTION_VARIABLES + MOTION_CSS + GLASS_CSS;`,
+  `${T}${T}${T}style.textContent = MOTION_VARIABLES + MOTION_CSS + GLASS_CSS + RUNNING_CSS;`,
   `${T}${T}${T}style.disabled = !readEnabled();`,
   `${T}${T}${T}document.head.appendChild(style);`,
   `${T}${T}${T}styleElement = style;`,
@@ -742,6 +758,69 @@ ${T}${T}${T}} catch (error) {
 ${T}${T}${T}${T}console.warn("[cinnabar] " + label + " failed; continuing without it:", error);
 ${T}${T}${T}}
 ${T}${T}}`,
+  '',
+  `${T}${T}/**`,
+  `${T}${T} * The live-session accent, data half.`,
+  `${T}${T} *`,
+  `${T}${T} * DSH renders the sidebar row without a state attribute, so this copies`,
+  `${T}${T} * ctx.sessions.list's running flag onto the row DSH already marks with`,
+  `${T}${T} * data-row-key="session:<id>"; the stylesheet does the rest. Repaints run on`,
+  `${T}${T} * list changes and on the gestures that mount rows the list never sees`,
+  `${T}${T} * (expanding a Workspace group renders rows that were not in the tree yet).`,
+  `${T}${T} * The listeners are capture-phase and rAF-coalesced, so a burst of updates`,
+  `${T}${T} * costs at most one scan per frame.`,
+  `${T}${T} * @param ctx - client cordis context.`,
+  `${T}${T} */`,
+  `${T}${T}function applyLiveRows(ctx) {`,
+  `${T}${T}${T}const doc = globalThis.document;`,
+  `${T}${T}${T}if (!doc || typeof doc.querySelectorAll !== "function" || typeof doc.addEventListener !== "function") return;`,
+  `${T}${T}${T}const list = ctx.sessions && ctx.sessions.list;`,
+  `${T}${T}${T}if (!list || typeof list.getSnapshot !== "function") return;`,
+  '',
+  `${T}${T}${T}const paint = () => {`,
+  `${T}${T}${T}${T}const snapshot = list.getSnapshot();`,
+  `${T}${T}${T}${T}const byId = (snapshot && snapshot.byId) || {};`,
+  `${T}${T}${T}${T}const rows = doc.querySelectorAll("[data-row-key^='session:']");`,
+  `${T}${T}${T}${T}for (const row of rows) {`,
+  `${T}${T}${T}${T}${T}const key = row.getAttribute("data-row-key") || "";`,
+  `${T}${T}${T}${T}${T}const summary = key.startsWith("session:") ? byId[key.slice(8)] : undefined;`,
+  `${T}${T}${T}${T}${T}if (summary !== undefined && summary.running === true) {`,
+  `${T}${T}${T}${T}${T}${T}if (row.getAttribute(LIVE_ATTRIBUTE) !== "running") row.setAttribute(LIVE_ATTRIBUTE, "running");`,
+  `${T}${T}${T}${T}${T}} else if (row.hasAttribute(LIVE_ATTRIBUTE)) {`,
+  `${T}${T}${T}${T}${T}${T}row.removeAttribute(LIVE_ATTRIBUTE);`,
+  `${T}${T}${T}${T}${T}}`,
+  `${T}${T}${T}${T}}`,
+  `${T}${T}${T}};`,
+  '',
+  `${T}${T}${T}let frame = 0;`,
+  `${T}${T}${T}const schedule = () => {`,
+  `${T}${T}${T}${T}if (typeof globalThis.requestAnimationFrame !== "function") {`,
+  `${T}${T}${T}${T}${T}paint();`,
+  `${T}${T}${T}${T}${T}return;`,
+  `${T}${T}${T}${T}}`,
+  `${T}${T}${T}${T}if (frame !== 0) return;`,
+  `${T}${T}${T}${T}frame = globalThis.requestAnimationFrame(() => {`,
+  `${T}${T}${T}${T}${T}frame = 0;`,
+  `${T}${T}${T}${T}${T}paint();`,
+  `${T}${T}${T}${T}});`,
+  `${T}${T}${T}};`,
+  '',
+  `${T}${T}${T}// A capture-phase listener sees the Workspace header's click and the row's`,
+  `${T}${T}${T}// keyboard expansion alike; visibilitychange covers a tab that was hidden`,
+  `${T}${T}${T}// while the state moved on.`,
+  `${T}${T}${T}const gestures = ["click", "keydown", "focusin", "visibilitychange"];`,
+  `${T}${T}${T}for (const name of gestures) doc.addEventListener(name, schedule, true);`,
+  '',
+  `${T}${T}${T}paint();`,
+  `${T}${T}${T}const stop = typeof list.subscribe === "function" ? list.subscribe(schedule) : null;`,
+  `${T}${T}${T}ctx.effect(() => () => {`,
+  `${T}${T}${T}${T}if (typeof stop === "function") stop();`,
+  `${T}${T}${T}${T}for (const name of gestures) doc.removeEventListener(name, schedule, true);`,
+  `${T}${T}${T}${T}if (frame !== 0 && typeof globalThis.cancelAnimationFrame === "function") globalThis.cancelAnimationFrame(frame);`,
+  `${T}${T}${T}${T}frame = 0;`,
+  `${T}${T}${T}}, SOURCE + ": live rows");`,
+  `${T}${T}}`,
+  '',
   `${T}${T}function apply(ctx) {`,
   `${T}${T}${T}// Carry a pre-0.4 selection over before anything paints.`,
   `${T}${T}${T}step("adopt legacy choice", () => adoptLegacyChoice(ctx));`,
@@ -755,6 +834,8 @@ ${T}${T}}`,
   `${T}${T}${T}step("theme crossfade", () => installThemeFade(ctx));`,
   `${T}${T}${T}// The old global is still honoured so a saved snippet keeps working.`,
   `${T}${T}${T}step("style layer", () => applyStyleLayer(ctx, globalThis.__CINNABAR_BACKGROUND__ ?? globalThis.__INKSTONE_BACKGROUND__));`,
+  `${T}${T}${T}// The sheet is up, so the rows it accents can be marked.`,
+  `${T}${T}${T}step("live rows", () => applyLiveRows(ctx));`,
   `${T}${T}${T}// After the stylesheet, because the curtain is styled by it.`,
   `${T}${T}${T}step("boot entrance", () => playBoot(ctx));`,
   `${T}${T}}`,

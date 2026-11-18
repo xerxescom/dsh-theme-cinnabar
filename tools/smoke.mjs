@@ -275,7 +275,7 @@ verify(
 )
 verify('registers no third-party theme id', fresh.theme.registrations === 0, `${fresh.theme.registrations} registration(s)`)
 verify('leaves the DSH preference alone on mount', fresh.theme.preference === 'system', fresh.theme.preference)
-verify('injects theme + slots', Array.isArray(fresh.exported.inject) && fresh.exported.inject.join(',') === 'theme,slots', String(fresh.exported.inject))
+verify('injects theme + slots + sessions', Array.isArray(fresh.exported.inject) && fresh.exported.inject.join(',') === 'theme,slots,sessions', String(fresh.exported.inject))
 verify('settings row is registered', fresh.registration !== null && fresh.registration.declaration.id === 'cinnabar-theme', fresh.registration?.declaration.id ?? 'none')
 const freshStyle = fresh.document.styles[0]
 verify(

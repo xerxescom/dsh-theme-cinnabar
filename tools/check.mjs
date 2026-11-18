@@ -23,6 +23,7 @@ import { readBaseline, readClientBundle } from './baseline.mjs'
 import { contrast, isColor, parseColor, toOklch } from './color.mjs'
 import { GLASS, GLASS_LIGHT, GLASS_WORST_CASE, GLASS_WORST_CASE_LIGHT, glassCss } from './glass.mjs'
 import { gate, generate } from './palette.mjs'
+import { runningCss } from './running.mjs'
 import { WHALE_PATH } from './whale.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -442,7 +443,7 @@ check(
 )
 
 const wiring = [
-  ['injects theme + slots', /const inject = \["theme", "slots"\]/.test(clientSource)],
+  ['injects theme + slots + sessions', /const inject = \["theme", "slots", "sessions"\]/.test(clientSource)],
   ['installs one token layer', /ctx\.theme\.overrideTokens\(SOURCE, PALETTE\)/.test(clientSource)],
   ['registers a settings row', /ctx\.slots\.register\(/.test(clientSource)],
   ['remembers the switch', /localStorage\??\.setItem\(STORAGE_KEY/.test(clientSource)],
@@ -504,6 +505,35 @@ check(
   'background DOM contract intact',
   missingAnchors.length === 0,
   missingAnchors.length === 0 ? ANCHORS.map(([, a]) => a).join(', ') : `gone upstream: ${missingAnchors.join(', ')}`,
+)
+
+// The live-session accent rides on data-row-key, the one stable hook the sidebar
+// row carries (its classes are CSS Module hashes). If DSH stops emitting it the
+// marking stops on its own — the theme keeps working, the accent just never
+// appears — so this is the line that tells you why after an upgrade.
+const sessionRows = readClientBundle(baseline.pkg.dir, 'dsh-client-ui-workspace')
+const liveHookIntact = sessionRows !== null && sessionRows.includes('data-row-key') && sessionRows.includes('session:')
+check(
+  'live-session DOM contract intact',
+  liveHookIntact,
+  sessionRows === null
+    ? 'dsh-client-ui-workspace not readable'
+    : liveHookIntact
+      ? 'data-row-key="session:<id>" still emitted by the sidebar session row'
+      : 'gone upstream: data-row-key on the sidebar session row',
+)
+
+// Drift guard for the embedded copy, same shape as the glass one: the sheet in
+// lib/client.js must be exactly what tools/running.mjs generates.
+const embeddedRunning = /const RUNNING_CSS = `([\s\S]*?)`;/.exec(clientSource)?.[1]
+check(
+  'live-session CSS matches tools/running.mjs',
+  embeddedRunning !== undefined && embeddedRunning === runningCss(),
+  embeddedRunning === undefined
+    ? 'lib/client.js has no RUNNING_CSS — run node tools/build-client.mjs'
+    : embeddedRunning === runningCss()
+      ? 'bundle matches the generator'
+      : 'stale copy in lib/client.js — run node tools/build-client.mjs',
 )
 
 // The background layer clears a container's own fill so the page shows through.
